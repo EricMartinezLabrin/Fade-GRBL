@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="NewLayer" xml:space="preserve"><value>Nueva capa</value></data>
+  <data name="DuplicateLayer" xml:space="preserve"><value>Duplicar capa</value></data>
+  <data name="DeleteLayer" xml:space="preserve"><value>Eliminar capa</value></data>
+  <data name="MoveUp" xml:space="preserve"><value>Subir capa</value></data>
+  <data name="MoveDown" xml:space="preserve"><value>Bajar capa</value></data>
+  <data name="Advanced" xml:space="preserve"><value>Propiedades avanzadas</value></data>
+  <data name="Collapse" xml:space="preserve"><value>Contraer capas</value></data>
+  <data name="DirectGcode" xml:space="preserve"><value>G-code directo - capas no disponibles</value></data>
+  <data name="Updating" xml:space="preserve"><value>Actualizando trabajo...</value></data>
+  <data name="FixErrors" xml:space="preserve"><value>Corrige los errores antes de enviar</value></data>
+  <data name="DeleteConfirm" xml:space="preserve"><value>¿Eliminar la capa y su contenido?</value></data>
+  <data name="Layers" xml:space="preserve"><value>Capas</value></data>
+  <data name="MergeConfirm" xml:space="preserve"><value>El color ya existe. ¿Combinar ambas capas?</value></data>
+  <data name="ImageEditConfirm" xml:space="preserve"><value>¿Abrir el procesador de imagen para esta capa? Los cambios sólo se aplican al pulsar Crear.</value></data>
+  <data name="ImageLayer" xml:space="preserve"><value>Capa de imagen</value></data>
+  <data name="AdvancedTitle" xml:space="preserve"><value>Ajustes avanzados de capa</value></data>
+  <data name="Interval" xml:space="preserve"><value>Intervalo de línea (mm)</value></data>
+  <data name="Angle" xml:space="preserve"><value>Ángulo (grados)</value></data>
+  <data name="Bidirectional" xml:space="preserve"><value>Relleno bidireccional</value></data>
+  <data name="OutsideInside" xml:space="preserve"><value>Exterior a interior</value></data>
+  <data name="Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="ChangeColor" xml:space="preserve"><value>Doble clic para cambiar color</value></data>
+  <data name="LayerCount" xml:space="preserve"><value>{0} capas</value></data>
+  <data name="ChooseLayerColor" xml:space="preserve"><value>Elegir color de capa</value></data>
+  <data name="Palette" xml:space="preserve"><value>Paleta de colores...</value></data>
+  <data name="Eyedropper" xml:space="preserve"><value>Cuentagotas</value></data>
+  <data name="Width" xml:space="preserve"><value>Ancho:</value></data>
+  <data name="Height" xml:space="preserve"><value>Alto:</value></data>
+  <data name="WidthTooltip" xml:space="preserve"><value>Ancho en milimetros</value></data>
+  <data name="HeightTooltip" xml:space="preserve"><value>Alto en milimetros</value></data>
+  <data name="LinkSize" xml:space="preserve"><value>Vincular</value></data>
+  <data name="KeepAspect" xml:space="preserve"><value>Mantener proporcion</value></data>
+  <data name="Objects" xml:space="preserve"><value>Objetos</value></data>
+  <data name="ObjectsTooltip" xml:space="preserve"><value>Seleccionar contornos: clic, Ctrl+clic, arrastrar; Supr borra la selección</value></data>
+  <data name="DeleteObjects" xml:space="preserve"><value>Borrar objetos</value></data>
+  <data name="InvalidValue" xml:space="preserve"><value>Introduce un entero positivo; la potencia debe estar entre 0 y 100.</value></data>
+  <data name="JobPause" xml:space="preserve"><value>Pausar</value></data>
+  <data name="JobResume" xml:space="preserve"><value>Reanudar</value></data>
+  <data name="JobParameters" xml:space="preserve"><value>Ajustar parámetros</value></data>
+  <data name="JobContinueHere" xml:space="preserve"><value>Continuar donde quedó</value></data>
+  <data name="JobRewind" xml:space="preserve"><value>Retroceder movimientos de corte</value></data>
+  <data name="JobRewindLimit" xml:space="preserve"><value>Límite en esta pasada: {0} movimientos</value></data>
+  <data name="JobRewindExplanation" xml:space="preserve"><value>Retroceso limitado a pasada actual. Con parámetros nuevos, arco parcial se repite desde su inicio.</value></data>
+  <data name="JobSafeFallback" xml:space="preserve"><value>Sin reporte preciso de movimiento. Retroceso o cambios reiniciarán desde inicio verificado de pasada; podrían repetir hasta {0} movimientos de corte. Continuar sin cambios conserva pausa exacta.</value></data>
+  <data name="JobAdvancedUnavailable" xml:space="preserve"><value>Retroceso y ajustes por capa requieren GRBL 1.1 detectado, modo láser y bloques de inicio vacíos. Pausa/reanudación normal sigue disponible.</value></data>
+  <data name="JobStaged" xml:space="preserve"><value>Cambios preparados. Pulsa Reanudar para aplicarlos.</value></data>
+  <data name="JobLayer" xml:space="preserve"><value>Capa</value></data>
+  <data name="JobPower" xml:space="preserve"><value>Potencia (%)</value></data>
+  <data name="JobSpeed" xml:space="preserve"><value>Velocidad (mm/min)</value></data>
+  <data name="JobPasses" xml:space="preserve"><value>Pasadas totales</value></data>
+  <data name="JobLayerCompleted" xml:space="preserve"><value>Capa ya completada</value></data>
+  <data name="JobApply" xml:space="preserve"><value>Aplicar</value></data>
+  <data name="JobParameterExplanation" xml:space="preserve"><value>Edita capa actual y pendientes. Reducir pasadas termina pasada actual. Aplicar prepara cambios y mantiene máquina pausada.</value></data>
+  <data name="JobInvalidParameters" xml:space="preserve"><value>{0}: potencia 0–100 %, velocidad 1–100000 mm/min, pasadas totales {1}–99.</value></data>
+  <data name="JobCompileFailed" xml:space="preserve"><value>No se pudieron preparar cambios. Se conservó trabajo anterior.</value></data>
+  <data name="JobRecoveryTimeout" xml:space="preserve"><value>Reanudación agotó tiempo de espera. Trabajo detenido; usa recuperación.</value></data>
+  <data name="JobRecoveryFailed" xml:space="preserve"><value>Error de controladora. Trabajo detenido; usa recuperación.</value></data>
+  <data name="JobCheckpointFailed" xml:space="preserve"><value>Falló sincronización. Reanudación avanzada deshabilitada.</value></data>
+  <data name="JobPositionChanged" xml:space="preserve"><value>Cambió posición o coordenadas de trabajo. Trabajo detenido; usa recuperación.</value></data>
+  <data name="JobEstimateExplanation" xml:space="preserve"><value>Estimación conservadora con margen del 30 %. Excluye pausas futuras y fallos; no es máximo garantizado.</value></data>
+  <data name="JobReady" xml:space="preserve"><value>Listo</value></data>
+  <data name="JobProgress" xml:space="preserve"><value>Progreso total: {0:0} %</value></data>
+  <data name="JobLayerProgress" xml:space="preserve"><value>Capa: {0} · Pasada {1}/{2} · {3} completadas</value></data>
+  <data name="JobCycles" xml:space="preserve"><value>Repetición del trabajo: {0}/{1}</value></data>
+  <data name="JobRemaining" xml:space="preserve"><value>Restante estimado, conservador: {0}</value></data>
+  <data name="JobCalculating" xml:space="preserve"><value>Calculando…</value></data>
+  <data name="JobStateRunning" xml:space="preserve"><value>Cortando</value></data>
+  <data name="JobStatePausing" xml:space="preserve"><value>Pausando…</value></data>
+  <data name="JobStatePaused" xml:space="preserve"><value>Pausado</value></data>
+  <data name="JobStateResuming" xml:space="preserve"><value>Reanudando…</value></data>
+  <data name="JobStateCompleted" xml:space="preserve"><value>Finalizado</value></data>
+  <data name="JobStateInterrupted" xml:space="preserve"><value>Interrumpido</value></data>
+<data name="Copy" xml:space="preserve"><value>Copiar</value></data>
+<data name="Paste" xml:space="preserve"><value>Pegar</value></data>
+<data name="Duplicate" xml:space="preserve"><value>Duplicar</value></data>
+<data name="CopySuffix" xml:space="preserve"><value> copia</value></data>
+</root>

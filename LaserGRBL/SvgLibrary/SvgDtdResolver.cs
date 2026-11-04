@@ -29,7 +29,12 @@ namespace Svg
         {
             if (absoluteUri.ToString().IndexOf("svg", StringComparison.InvariantCultureIgnoreCase) > -1)
             {
-                return Assembly.GetExecutingAssembly().GetManifestResourceStream("Svg.Resources.svg11.dtd");
+                Assembly assembly = Assembly.GetExecutingAssembly();
+                string resourceName = assembly.GetManifestResourceNames()
+                    .FirstOrDefault(name => name.EndsWith(".Resources.svg11.dtd", StringComparison.OrdinalIgnoreCase));
+                if (resourceName == null)
+                    throw new XmlException("The embedded SVG 1.1 DTD resource was not found.");
+                return assembly.GetManifestResourceStream(resourceName);
             }
             else
             {

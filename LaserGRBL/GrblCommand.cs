@@ -145,6 +145,16 @@ namespace LaserGRBL
         private Dictionary<char, GrblCommand.Element> mHelper;
         private int mRepeatCount;
         public Object3DDisplayList LinkedDisplayList { get; internal set; } = null;
+        public Guid? SourceLayerId { get; internal set; }
+        public int SourcePass { get; internal set; }
+        public int SourceCommandIndex { get; internal set; }
+        public int SourceMovement { get; internal set; }
+        public bool IsCuttingMovement { get; internal set; }
+        public bool IsJobCheckpoint { get; internal set; }
+        internal int JobIndex { get; set; } = -1;
+        internal bool ReportJobLine { get; set; }
+        public Color? PreviewColor { get; internal set; }
+        public bool PreviewMuted { get; internal set; }
 
 
         public string mCodedResult
@@ -276,7 +286,7 @@ namespace LaserGRBL
 			get
 			{
 				if (CanCompress)
-					return mLine.Trim(trimarray).Replace(" ","") + '\n';  //strip spaces
+					return (ReportJobLine ? "N" + (JobIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : "") + mLine.Trim(trimarray).Replace(" ","") + '\n';  //strip spaces
 				else
 					return mLine.Trim(trimarray) + '\n';  //send it "as is"
 			} 

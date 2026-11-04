@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="NewLayer" xml:space="preserve"><value>New layer</value></data>
+  <data name="DuplicateLayer" xml:space="preserve"><value>Duplicate layer</value></data>
+  <data name="DeleteLayer" xml:space="preserve"><value>Delete layer</value></data>
+  <data name="MoveUp" xml:space="preserve"><value>Move layer up</value></data>
+  <data name="MoveDown" xml:space="preserve"><value>Move layer down</value></data>
+  <data name="Advanced" xml:space="preserve"><value>Advanced properties</value></data>
+  <data name="Collapse" xml:space="preserve"><value>Collapse layers</value></data>
+  <data name="DirectGcode" xml:space="preserve"><value>Direct G-code - layers unavailable</value></data>
+  <data name="Updating" xml:space="preserve"><value>Updating job...</value></data>
+  <data name="FixErrors" xml:space="preserve"><value>Fix layer errors before sending</value></data>
+  <data name="DeleteConfirm" xml:space="preserve"><value>Delete layer and its content?</value></data>
+  <data name="Layers" xml:space="preserve"><value>Layers</value></data>
+  <data name="MergeConfirm" xml:space="preserve"><value>Color already exists. Merge both layers?</value></data>
+  <data name="ImageEditConfirm" xml:space="preserve"><value>Open the image processor for this layer? Changes are applied only after Create is pressed.</value></data>
+  <data name="ImageLayer" xml:space="preserve"><value>Image layer</value></data>
+  <data name="AdvancedTitle" xml:space="preserve"><value>Advanced layer settings</value></data>
+  <data name="Interval" xml:space="preserve"><value>Line interval (mm)</value></data>
+  <data name="Angle" xml:space="preserve"><value>Angle (degrees)</value></data>
+  <data name="Bidirectional" xml:space="preserve"><value>Bidirectional fill</value></data>
+  <data name="OutsideInside" xml:space="preserve"><value>Outside to inside</value></data>
+  <data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="ChangeColor" xml:space="preserve"><value>Double-click to change color</value></data>
+  <data name="LayerCount" xml:space="preserve"><value>{0} layers</value></data>
+  <data name="ChooseLayerColor" xml:space="preserve"><value>Choose layer color</value></data>
+  <data name="Palette" xml:space="preserve"><value>Color palette...</value></data>
+  <data name="Eyedropper" xml:space="preserve"><value>Eyedropper</value></data>
+  <data name="Width" xml:space="preserve"><value>W:</value></data>
+  <data name="Height" xml:space="preserve"><value>H:</value></data>
+  <data name="WidthTooltip" xml:space="preserve"><value>Width in millimeters</value></data>
+  <data name="HeightTooltip" xml:space="preserve"><value>Height in millimeters</value></data>
+  <data name="LinkSize" xml:space="preserve"><value>Link</value></data>
+  <data name="KeepAspect" xml:space="preserve"><value>Keep aspect ratio</value></data>
+  <data name="Objects" xml:space="preserve"><value>Objects</value></data>
+  <data name="ObjectsTooltip" xml:space="preserve"><value>Select contours: click, Ctrl+click, drag; Delete removes selection</value></data>
+  <data name="DeleteObjects" xml:space="preserve"><value>Delete objects</value></data>
+  <data name="InvalidValue" xml:space="preserve"><value>Enter a positive integer; power must be between 0 and 100.</value></data>
+  <data name="JobPause" xml:space="preserve"><value>Pause</value></data>
+  <data name="JobResume" xml:space="preserve"><value>Resume</value></data>
+  <data name="JobParameters" xml:space="preserve"><value>Adjust parameters</value></data>
+  <data name="JobContinueHere" xml:space="preserve"><value>Continue where it stopped</value></data>
+  <data name="JobRewind" xml:space="preserve"><value>Go back cutting movements</value></data>
+  <data name="JobRewindLimit" xml:space="preserve"><value>Limit in this pass: {0} movements</value></data>
+  <data name="JobRewindExplanation" xml:space="preserve"><value>Go back only within the current pass. With changed parameters, a partial arc is repeated from its beginning.</value></data>
+  <data name="JobSafeFallback" xml:space="preserve"><value>No exact motion report. Rewind or parameter changes restart at the verified beginning of this pass, potentially repeating up to {0} cutting movements. Continue without changes keeps the exact native pause.</value></data>
+  <data name="JobAdvancedUnavailable" xml:space="preserve"><value>Rewind and layer adjustments require detected GRBL 1.1, laser mode and empty startup blocks. Native pause/resume remains available.</value></data>
+  <data name="JobStaged" xml:space="preserve"><value>Changes prepared. Press Resume to apply them.</value></data>
+  <data name="JobLayer" xml:space="preserve"><value>Layer</value></data>
+  <data name="JobPower" xml:space="preserve"><value>Power (%)</value></data>
+  <data name="JobSpeed" xml:space="preserve"><value>Speed (mm/min)</value></data>
+  <data name="JobPasses" xml:space="preserve"><value>Total passes</value></data>
+  <data name="JobLayerCompleted" xml:space="preserve"><value>Layer already completed</value></data>
+  <data name="JobApply" xml:space="preserve"><value>Apply</value></data>
+  <data name="JobParameterExplanation" xml:space="preserve"><value>Edit current and pending layers. Reducing total passes finishes the current pass. Applying prepares changes and keeps the machine paused.</value></data>
+  <data name="JobInvalidParameters" xml:space="preserve"><value>{0}: power 0–100%, speed 1–100000 mm/min, total passes {1}–99.</value></data>
+  <data name="JobCompileFailed" xml:space="preserve"><value>Could not prepare changes. Previous job preserved.</value></data>
+  <data name="JobRecoveryTimeout" xml:space="preserve"><value>Resume timed out. Job stopped; use job recovery.</value></data>
+  <data name="JobRecoveryFailed" xml:space="preserve"><value>Controller error. Job stopped; use job recovery.</value></data>
+  <data name="JobCheckpointFailed" xml:space="preserve"><value>Synchronization failed. Advanced resume disabled.</value></data>
+  <data name="JobPositionChanged" xml:space="preserve"><value>Position or work coordinates changed. Job stopped; use job recovery.</value></data>
+  <data name="JobEstimateExplanation" xml:space="preserve"><value>Conservative estimate with a 30% margin. Excludes future pauses and failures; not a guaranteed maximum.</value></data>
+  <data name="JobReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="JobProgress" xml:space="preserve"><value>Total progress: {0:0} %</value></data>
+  <data name="JobLayerProgress" xml:space="preserve"><value>Layer: {0} · Pass {1}/{2} · {3} completed</value></data>
+  <data name="JobCycles" xml:space="preserve"><value>Job repetition: {0}/{1}</value></data>
+  <data name="JobRemaining" xml:space="preserve"><value>Estimated remaining, conservative: {0}</value></data>
+  <data name="JobCalculating" xml:space="preserve"><value>Calculating…</value></data>
+  <data name="JobStateRunning" xml:space="preserve"><value>Cutting</value></data>
+  <data name="JobStatePausing" xml:space="preserve"><value>Pausing…</value></data>
+  <data name="JobStatePaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="JobStateResuming" xml:space="preserve"><value>Resuming…</value></data>
+  <data name="JobStateCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="JobStateInterrupted" xml:space="preserve"><value>Interrupted</value></data>
+<data name="Copy" xml:space="preserve"><value>Copy</value></data>
+<data name="Paste" xml:space="preserve"><value>Paste</value></data>
+<data name="Duplicate" xml:space="preserve"><value>Duplicate</value></data>
+<data name="CopySuffix" xml:space="preserve"><value> copy</value></data>
+</root>

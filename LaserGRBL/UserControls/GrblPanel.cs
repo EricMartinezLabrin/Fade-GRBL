@@ -24,6 +24,9 @@ namespace LaserGRBL.UserControls
 		private float mCurF;
 		private float mCurS;
 		private bool mFSTrig;
+		private RectangleF? mSelectionBounds;
+		private Layering.VectorPath[] mSelectionContours = new Layering.VectorPath[0];
+		private bool mLayerEditing;
 
 		public GrblPanel()
 		{
@@ -88,7 +91,7 @@ namespace LaserGRBL.UserControls
 						//  II | I
 						// ---------
 						// III | IV
-						GrblFile.CartesianQuadrant q = Core != null && Core.LoadedFile != null ? Core.LoadedFile.Quadrant : GrblFile.CartesianQuadrant.Unknown;
+						GrblFile.CartesianQuadrant q = Core != null && Core.PreviewFile != null ? Core.PreviewFile.Quadrant : GrblFile.CartesianQuadrant.Unknown;
 						sf.Alignment = q == GrblFile.CartesianQuadrant.II || q == GrblFile.CartesianQuadrant.III ? StringAlignment.Near : StringAlignment.Far;
 						sf.LineAlignment = q == GrblFile.CartesianQuadrant.III || q == GrblFile.CartesianQuadrant.IV ? StringAlignment.Far : StringAlignment.Near;
 
@@ -113,6 +116,8 @@ namespace LaserGRBL.UserControls
 						e.Graphics.DrawString(position, Font, b, r, sf);
 					}
 				}
+
+				DrawSelection(e.Graphics);
 			}
 			catch (Exception ex)
 			{
@@ -135,6 +140,7 @@ namespace LaserGRBL.UserControls
 			Core = core;
 			Core.OnFileLoading += OnFileLoading;
 			Core.OnFileLoaded += OnFileLoaded;
+			Core.OnPreviewChanged += RecreateBMP;
 		}
 
 		void OnFileLoading(long elapsed, string filename)
@@ -189,7 +195,7 @@ namespace LaserGRBL.UserControls
 					g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
 					if (Core != null /*&& Core.HasProgram*/)
-						Core.LoadedFile.DrawOnGraphics(g, wSize);
+						Core.PreviewFile.DrawOnGraphics(g, wSize);
 
 					mLastMatrix = g.Transform;
 				}
@@ -230,6 +236,23 @@ namespace LaserGRBL.UserControls
 			return pa[0];
 		}
 
+		public PointF MachineToClient(PointF point) { return MachineToDraw(point); }
+		public PointF ClientToMachine(PointF point) { return DrawToMachine(point); }
+		public void SetSelectionBounds(RectangleF? bounds) { mSelectionBounds = bounds; Invalidate(); }
+		public void SetSelectionContours(System.Collections.Generic.IEnumerable<Layering.VectorPath> paths) { mSelectionContours = System.Linq.Enumerable.ToArray(paths); Invalidate(); }
+		public void SetLayerEditing(bool enabled) { mLayerEditing = enabled; }
+
+		private void DrawSelection(Graphics graphics)
+		{
+			Layering.LayerGeometry.DrawContours(graphics, mSelectionContours, MachineToClient);
+			if (!mSelectionBounds.HasValue) return;
+			RectangleF bounds = mSelectionBounds.Value;
+			PointF first = MachineToDraw(new PointF(bounds.Left, bounds.Top));
+			PointF second = MachineToDraw(new PointF(bounds.Right, bounds.Bottom));
+			RectangleF screen = RectangleF.FromLTRB(Math.Min(first.X, second.X), Math.Min(first.Y, second.Y), Math.Max(first.X, second.X), Math.Max(first.Y, second.Y));
+			using (Pen pen = new Pen(Color.DodgerBlue, 1.5f)) { pen.DashStyle = DashStyle.Dash; graphics.DrawRectangle(pen, screen.X, screen.Y, screen.Width, screen.Height); }
+		}
+
 		private void AssignBMP(System.Drawing.Bitmap bmp)
 		{
 			lock (this)
@@ -262,7 +285,7 @@ namespace LaserGRBL.UserControls
 
 		private void GrblPanel_MouseDoubleClick(object sender, MouseEventArgs e)
 		{
-			if (Settings.GetObject("Click N Jog", true))
+			if (!mLayerEditing && Settings.GetObject("Click N Jog", true))
 			{
 				PointF coord = DrawToMachine(new PointF(e.X, e.Y));
 				Core.JogToPosition(coord, e.Button == MouseButtons.Right);

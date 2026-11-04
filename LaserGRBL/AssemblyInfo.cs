@@ -7,11 +7,11 @@ using System.Resources;
 // Le informazioni generali relative a un assembly sono controllate dal seguente 
 // set di attributi. Per modificare le informazioni associate a un assembly
 // occorre quindi modificare i valori di questi attributi.
-[assembly: AssemblyTitle ("Laser GRBL")]
+[assembly: AssemblyTitle ("FadeGRBL")]
 [assembly: AssemblyDescription ("")]
 [assembly: AssemblyConfiguration ("")]
 [assembly: AssemblyCompany ("")]
-[assembly: AssemblyProduct ("Laser GRBL")]
+[assembly: AssemblyProduct ("FadeGRBL")]
 [assembly: AssemblyCopyright ("Copyright © 2016 - Diego Settimi")]
 [assembly: AssemblyTrademark ("")]
 [assembly: AssemblyCulture ("")]
@@ -31,5 +31,5 @@ using System.Resources;
 // È possibile specificare tutti i valori oppure impostare valori predefiniti per i numeri relativi alla revisione e alla build 
 // utilizzando l'asterisco (*) come descritto di seguito:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion ("7.14.1")]
+[assembly: AssemblyVersion ("1.0.0")]
 [assembly: NeutralResourcesLanguage("en")]

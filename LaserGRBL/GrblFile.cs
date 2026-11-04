@@ -154,6 +154,18 @@ namespace LaserGRBL
             });
 		}
 
+		internal bool LoadCommands(IEnumerable<GrblCommand> commands, string sourceName, bool notify)
+		{
+			if (CheckInUse(false)) return false;
+			long start = Tools.HiResTimer.TotalMilliseconds;
+			if (notify) RiseOnFileLoading(sourceName);
+			ClearList();
+			list.AddRange(commands);
+			Analyze();
+			if (notify) RiseOnFileLoaded(sourceName, Tools.HiResTimer.TotalMilliseconds - start);
+			return true;
+		}
+
 		public void LoadImportedSVG(string filename, bool append, GrblCore core, ColorFilter filter)
         {
             SafeLoadFile(() =>
@@ -1359,7 +1371,10 @@ namespace LaserGRBL
 
 					if (spb.TrueMovement())
 					{
-						Color linecolor = Color.FromArgb(spb.GetCurrentAlpha(mRange.SpindleRange), firstline ? ColorScheme.PreviewFirstMovement : spb.LaserBurning ? ColorScheme.PreviewLaserPower : ColorScheme.PreviewOtherMovement);
+						Color baseColor = firstline ? ColorScheme.PreviewFirstMovement : spb.LaserBurning ? (cmd.PreviewColor ?? ColorScheme.PreviewLaserPower) : ColorScheme.PreviewOtherMovement;
+						int alpha = spb.GetCurrentAlpha(mRange.SpindleRange);
+						if (cmd.PreviewMuted && spb.LaserBurning) alpha = (int)(alpha * 0.35);
+						Color linecolor = Color.FromArgb(alpha, baseColor);
 						using (Pen pen = GetPen(linecolor))
 						{
 							pen.ScaleTransform(1 / zoom, 1 / zoom);

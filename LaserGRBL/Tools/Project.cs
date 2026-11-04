@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
+using System.Linq;
 using LaserGRBL;
+using System.Reflection;
 
 namespace Tools
 {
@@ -14,7 +17,42 @@ namespace Tools
         /// <summary>
         /// Formatter
         /// </summary>
-        private static readonly BinaryFormatter Formatter = new BinaryFormatter { AssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Simple };
+        private static readonly BinaryFormatter Formatter = new BinaryFormatter
+        {
+            AssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Simple,
+            Binder = new LegacyProjectBinder()
+        };
+
+        private sealed class LegacyProjectBinder : SerializationBinder
+        {
+            public override Type BindToType(string assemblyName, string typeName)
+            {
+                string simpleAssembly = new AssemblyName(assemblyName).Name;
+                string applicationAssembly = typeof(Project).Assembly.GetName().Name;
+                if (simpleAssembly != "mscorlib" && simpleAssembly != "System" && simpleAssembly != "System.Drawing" && simpleAssembly != applicationAssembly)
+                    throw new SerializationException("Legacy project contains an unsupported assembly: " + simpleAssembly);
+                Type type = Type.GetType(typeName + ", " + assemblyName, false);
+                if (type == null || !Allowed(type))
+                    throw new SerializationException("Legacy project contains an unsupported type: " + typeName);
+                return type;
+            }
+
+            private static bool Allowed(Type type)
+            {
+                if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal) || type == typeof(object) || type == typeof(Guid)) return true;
+                if (type.Assembly == typeof(string).Assembly && typeof(IEqualityComparer<string>).IsAssignableFrom(type)) return true;
+                if (type.IsEnum) return type.Assembly == typeof(Project).Assembly || type.Assembly == typeof(System.Drawing.Color).Assembly;
+                if (type.IsArray) return Allowed(type.GetElementType());
+                if (type == typeof(System.Drawing.Size) || type == typeof(System.Drawing.SizeF) || type == typeof(System.Drawing.Point) || type == typeof(System.Drawing.PointF)) return true;
+                if (type.IsGenericType)
+                {
+                    Type definition = type.GetGenericTypeDefinition();
+                    if (definition != typeof(List<>) && definition != typeof(Dictionary<,>) && definition != typeof(KeyValuePair<,>)) return false;
+                    return type.GetGenericArguments().All(Allowed);
+                }
+                return false;
+            }
+        }
 
         #endregion
 
@@ -58,13 +96,7 @@ namespace Tools
         /// <param name="filename">Filepath where project should be stored</param>
         public static void StoreSettings(string filename)
         {
-            if (string.IsNullOrEmpty(filename)) return;
-
-            using (var fs = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                Formatter.Serialize(fs, ProjectSettings);
-                fs.Close();
-            }
+            throw new NotSupportedException("Legacy BinaryFormatter projects are read-only. Save projects with LayerProjectSerializer v2.");
         }
 
         /// <summary>

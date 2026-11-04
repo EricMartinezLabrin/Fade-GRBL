@@ -62,8 +62,8 @@ namespace LaserGRBL
             this.tableLayoutPanel6 = new System.Windows.Forms.TableLayoutPanel();
             this.TxtManualCommand = new LaserGRBL.UserControls.GrblTextBox();
             this.CmdLog = new LaserGRBL.UserControls.CommandLog();
-            this.GBFile = new System.Windows.Forms.Panel();
-            this.tableLayoutPanel5 = new System.Windows.Forms.TableLayoutPanel();
+            this.GBFile = new BufferedJobPanel();
+            this.tableLayoutPanel5 = new BufferedJobTable();
             this.LblProgress = new System.Windows.Forms.Label();
             this.LblFilename = new System.Windows.Forms.Label();
             this.TbFileName = new UserControls.TextInput();

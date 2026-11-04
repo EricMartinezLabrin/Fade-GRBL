@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>LaserGRBL</RootNamespace>
     <AssemblyName>LaserGRBL</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <NoStdLib>False</NoStdLib>
@@ -54,6 +54,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisIgnoreGeneratedCode>false</CodeAnalysisIgnoreGeneratedCode>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -66,6 +67,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
@@ -173,6 +175,28 @@
     <Compile Include="LaserUsage.Designer.cs">
       <DependentUpon>LaserUsage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Layering\LaserDocument.cs" />
+    <Compile Include="Layering\CanvasClipboard.cs" />
+    <Compile Include="Layering\LayerGeometry.cs" />
+    <Compile Include="Layering\LayeredJobCompiler.cs" />
+    <Compile Include="Layering\JobExecutionSession.cs" />
+    <Compile Include="Layering\JobControlDialogs.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Core\GrblCore.JobExecution.cs" />
+    <Compile Include="ConnectLogForm.JobExecution.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Layering\LayerDocumentController.cs" />
+    <Compile Include="Layering\LayerColorPickerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Layering\LayerManagerControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Layering\LayerProjectSerializer.cs" />
+    <Compile Include="Layering\LayerText.cs" />
+    <Compile Include="Layering\SvgLayerImporter.cs" />
     <Compile Include="Obj3D\ColorHelper.cs" />
     <Compile Include="Obj3D\GlColorHelper.cs" />
     <Compile Include="ComWrapper\RJCP\Datastructures\CircularBuffer.cs" />
@@ -223,7 +247,6 @@
     <Compile Include="ComWrapper\RJCP\SerialPinChangedEventArgs.cs" />
     <Compile Include="ComWrapper\RJCP\SerialPortStream.cs" />
     <Compile Include="ComWrapper\RJCP\StopBits.cs" />
-    <Compile Include="ComWrapper\RJCP\System\EntryPointNotFoundException.cs" />
     <Compile Include="ComWrapper\RJCP\Trace\LineSplitter.cs" />
     <Compile Include="ComWrapper\RJCP\Trace\Log.cs" />
     <Compile Include="ComWrapper\RJCP\Trace\LoggerTraceListener.cs" />
@@ -2496,6 +2519,10 @@
     <EmbeddedResource Include="SvgIcons\Flags.header" />
     <None Include="SvgLibrary\Basic Shapes\DOM.cd" />
     <EmbeddedResource Include="SvgLibrary\Resources\svg11.dtd" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Layering\LayerText.resx" />
+    <EmbeddedResource Include="Layering\LayerText.es.resx" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Firmware\libusb0.dll">

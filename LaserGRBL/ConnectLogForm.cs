@@ -27,6 +27,7 @@ namespace LaserGRBL
 		{
 			currentWrapper = Settings.GetObject("ComWrapper Protocol", ComWrapper.WrapperType.UsbSerial);
 			InitializeComponent();
+			BuildJobControls();
         }
 
         public void SetCore(GrblCore core)
@@ -220,20 +221,12 @@ namespace LaserGRBL
 			if (!Core.IsConnected && System.IO.Ports.SerialPort.GetPortNames().Length != CBPort.Items.Count)
 				InitPortCB();
 			
-			PB.Maximum = Core.ProgramTarget;
-			PB.Bars[0].Value = Core.ProgramSent;
-			PB.Bars[1].Value = Core.ProgramExecuted;
-
-			string val = Tools.Utils.TimeSpanToString(Core.ProgramTime, Tools.Utils.TimePrecision.Minute, Tools.Utils.TimePrecision.Second, " ,", true);
-
-			if (val != "now")
-				PB.PercString = val;
-			else if (Core.InProgram)
-				PB.PercString = "0 sec";
-			else
-				PB.PercString = "";
-			
-			PB.Invalidate();
+            if (!UpdateJobControls())
+            {
+                string val = Tools.Utils.TimeSpanToString(Core.ProgramTime, Tools.Utils.TimePrecision.Minute, Tools.Utils.TimePrecision.Second, " ,", true);
+                string text = val != "now" ? val : Core.InProgram ? "0 sec" : "";
+                UpdateProgressBar(Core.ProgramTarget, Core.ProgramSent, Core.ProgramExecuted, text);
+            }
 
 			/*
 			Idle: All systems are go, no motions queued, and it's ready for anything.

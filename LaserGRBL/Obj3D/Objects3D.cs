@@ -315,31 +315,31 @@ namespace LaserGRBL.Obj3D
             const int zPos = 0;
             NewDisplayList(true, BOUNDING_RECT_LINE_WIDTH, BOUNDING_RECT_STIPPLE);
             GrblCommand.StatePositionBuilder spb = new GrblCommand.StatePositionBuilder();
-            Core.LoadedFile.InUse = true;
+            Core.PreviewFile.InUse = true;
             
             mBoundingBoxDisplayList = mCurrentDisplayList;
             if (!mJustLaserOffMovements)
             {
                 const int borderLimit = 1000000;
 
-                AddVertex(-borderLimit, (double)Core.LoadedFile.Range.DrawingRange.Y.Min, zPos, BoundingBoxColor);
-                AddVertex(borderLimit, (double)Core.LoadedFile.Range.DrawingRange.Y.Min, zPos, BoundingBoxColor);
+                AddVertex(-borderLimit, (double)Core.PreviewFile.Range.DrawingRange.Y.Min, zPos, BoundingBoxColor);
+                AddVertex(borderLimit, (double)Core.PreviewFile.Range.DrawingRange.Y.Min, zPos, BoundingBoxColor);
 
-                AddVertex((double)Core.LoadedFile.Range.DrawingRange.X.Max, -borderLimit, zPos, BoundingBoxColor);
-                AddVertex((double)Core.LoadedFile.Range.DrawingRange.X.Max, borderLimit, zPos, BoundingBoxColor);
+                AddVertex((double)Core.PreviewFile.Range.DrawingRange.X.Max, -borderLimit, zPos, BoundingBoxColor);
+                AddVertex((double)Core.PreviewFile.Range.DrawingRange.X.Max, borderLimit, zPos, BoundingBoxColor);
 
-                AddVertex(-borderLimit, (double)Core.LoadedFile.Range.DrawingRange.Y.Max, zPos, BoundingBoxColor);
-                AddVertex(borderLimit, (double)Core.LoadedFile.Range.DrawingRange.Y.Max, zPos, BoundingBoxColor);
+                AddVertex(-borderLimit, (double)Core.PreviewFile.Range.DrawingRange.Y.Max, zPos, BoundingBoxColor);
+                AddVertex(borderLimit, (double)Core.PreviewFile.Range.DrawingRange.Y.Max, zPos, BoundingBoxColor);
 
-                AddVertex((double)Core.LoadedFile.Range.DrawingRange.X.Min, -borderLimit, zPos, BoundingBoxColor);
-                AddVertex((double)Core.LoadedFile.Range.DrawingRange.X.Min, borderLimit, zPos, BoundingBoxColor);
+                AddVertex((double)Core.PreviewFile.Range.DrawingRange.X.Min, -borderLimit, zPos, BoundingBoxColor);
+                AddVertex((double)Core.PreviewFile.Range.DrawingRange.X.Min, borderLimit, zPos, BoundingBoxColor);
             }
             NewDisplayList();
-            int commandsCount = Core.LoadedFile.Commands.Count;
+            int commandsCount = Core.PreviewFile.Commands.Count;
             for (int i = 0; i < commandsCount; i++)
             {
                 LoadingPercentage = (i + 1.0) / commandsCount * 100;
-                GrblCommand cmd = Core.LoadedFile.Commands[i];
+                GrblCommand cmd = Core.PreviewFile.Commands[i];
                 try
                 {
                     cmd.BuildHelper();
@@ -350,10 +350,16 @@ namespace LaserGRBL.Obj3D
                         if (spb.G0G1 && cmd.IsLinearMovement)
                         {
                             GLColor color = Color;
+                            if (spb.LaserBurning && cmd.PreviewColor.HasValue)
+                            {
+                                color = new GLColor();
+                                color.FromColor(cmd.PreviewColor.Value);
+                            }
                             float intensity = 1;
                             if (spb.LaserBurning && !mJustLaserOffMovements)
                             {
-                                intensity = spb.GetCurrentAlpha(Core.LoadedFile.Range.SpindleRange) / 255f;
+                                intensity = spb.GetCurrentAlpha(Core.PreviewFile.Range.SpindleRange) / 255f;
+								if (cmd.PreviewMuted) intensity *= 0.35f;
                             }
                             else
                             {
@@ -374,7 +380,13 @@ namespace LaserGRBL.Obj3D
                                 double? lastX = null;
                                 double? lastY = null;
                                 GLColor color = Color;
-                                float intensity = spb.GetCurrentAlpha(Core.LoadedFile.Range.SpindleRange) / 255f;
+								if (spb.LaserBurning && cmd.PreviewColor.HasValue)
+								{
+									color = new GLColor();
+									color.FromColor(cmd.PreviewColor.Value);
+								}
+                                float intensity = spb.GetCurrentAlpha(Core.PreviewFile.Range.SpindleRange) / 255f;
+								if (cmd.PreviewMuted) intensity *= 0.35f;
                                 color = Blend(color, intensity);
                                 double startAngle = ah.StartAngle;
                                 double endAngle = ah.StartAngle + ah.AngularWidth;
@@ -407,7 +419,7 @@ namespace LaserGRBL.Obj3D
                 }
                 finally { cmd.DeleteHelper(); }
             }
-            Core.LoadedFile.InUse = false;
+            Core.PreviewFile.InUse = false;
         }
 
         public override void Invalidate()

@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using LaserGRBL.Layering;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -27,7 +28,7 @@ namespace LaserGRBL
 	/// <summary>
 	/// Description of CommandThread.
 	/// </summary>
-	public class GrblCore
+	public partial class GrblCore
 	{
 		//public static PSHelper.PSFile MaterialDB = PSHelper.PSFile.Load();
 		public static PSHelper.MaterialDB MaterialDB = PSHelper.MaterialDB.Load();
@@ -265,6 +266,7 @@ namespace LaserGRBL
 		public event dlgOnMachineStatus MachineStatusChanged;
 		public event GrblFile.OnFileLoadedDlg OnFileLoading;
 		public event GrblFile.OnFileLoadedDlg OnFileLoaded;
+		public event Action OnPreviewChanged;
 		public event dlgOnOverrideChange OnOverrideChange;
 		public event dlgOnLoopCountChange OnLoopCountChange;
 		public event dlgJogStateChange JogStateChange;
@@ -275,6 +277,8 @@ namespace LaserGRBL
 		private System.Windows.Forms.Control syncro;
 		protected ComWrapper.IComWrapper com;
 		private GrblFile file;
+		private GrblFile previewFile;
+		public LayerDocumentController LayerController { get; private set; }
 		private System.Collections.Generic.Queue<GrblCommand> mQueue; //vera coda di quelli da mandare
 		private GrblCommand mRetryQueue; //coda[1] di quelli in attesa di risposta
 		private System.Collections.Generic.Queue<GrblCommand> mPending; //coda di quelli in attesa di risposta
@@ -369,6 +373,8 @@ namespace LaserGRBL
 			RX = new Tools.ThreadObject(ThreadRX, 1, true, "Serial RX Thread", null, System.Threading.ThreadPriority.Highest);
 
 			file = new GrblFile(0, 0, Configuration.TableWidth, Configuration.TableHeight);  //create a fake range to use with manual movements
+			previewFile = file;
+			LayerController = new LayerDocumentController(this);
 
 			file.OnFileLoading += RiseOnFileLoading;
 			file.OnFileLoaded += RiseOnFileLoaded;
@@ -496,6 +502,11 @@ namespace LaserGRBL
 				{
 					MacStatus oldStatus = mMachineStatus;
 					mMachineStatus = newStatus;
+					if (newStatus == MacStatus.Disconnected || newStatus == MacStatus.Alarm)
+					{
+						if (mJobRebuild != null) mJobError = LayerText.Get("JobRecoveryFailed");
+						InterruptJobSession();
+					}
 
 					Logger.LogMessage("SetStatus", "Machine status [{0}]", mMachineStatus);
 					if (oldStatus == MacStatus.Connecting && newStatus == MacStatus.Disconnected)
@@ -641,6 +652,28 @@ namespace LaserGRBL
 		public GrblFile LoadedFile
 		{ get { return file; } }
 
+		public GrblFile PreviewFile
+		{ get { return previewFile ?? file; } }
+
+		internal void UseLegacyPreview()
+		{ previewFile = file; }
+
+		internal bool ApplyLayeredCompilation(LayeredCompilation compilation, bool notify = true)
+		{
+			GrblFile preview = new GrblFile();
+			preview.LoadCommands(compilation.PreviewCommands, "Layered preview", false);
+			if (file.CheckInUse(false)) return false;
+			GrblFile previousPreview = previewFile;
+			previewFile = preview;
+			if (file.LoadCommands(compilation.OutputCommands, "Layered project", notify))
+			{
+				if (!notify && OnPreviewChanged != null) OnPreviewChanged();
+				return true;
+			}
+			previewFile = previousPreview;
+			return false;
+		}
+
 		public void ReOpenFile()
 		{
 			if (CanReOpenFile)
@@ -695,7 +728,9 @@ namespace LaserGRBL
 				{
 					try
 					{
+						int previousCommandCount = file.Commands.Count;
 						RasterConverter.RasterToLaserForm.CreateAndShowDialog(this, filename, append);
+						LayerController.CaptureRasterImport(filename, append, previousCommandCount);
 						UsageCounters.RasterFile++;
 					}
 					catch (Exception ex)
@@ -708,7 +743,11 @@ namespace LaserGRBL
 					{
 						try
 						{
-							SvgConverter.SvgToGCodeForm.CreateAndShowDialog(this, filename, append);
+							SvgImportResult importResult = LayerController.ImportSvg(filename, append);
+							if (importResult.ImportedElements == 0)
+								System.Windows.Forms.MessageBox.Show("No supported SVG geometry was found.", "SVG import", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+							else if (importResult.SkippedElements > 0)
+								System.Windows.Forms.MessageBox.Show(string.Format("Imported {0} SVG elements; skipped {1}.", importResult.ImportedElements, importResult.SkippedElements), "SVG import", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
 							UsageCounters.SvgFile++;
 						}
 						catch (Exception ex)
@@ -753,6 +792,7 @@ namespace LaserGRBL
 				else if (GCodeExtensions.Contains(System.IO.Path.GetExtension(filename).ToLowerInvariant()))  //load GCODE file
 				{
 					Cursor.Current = Cursors.WaitCursor;
+					LayerController.ExitLayeredMode();
 
 					try
 					{
@@ -766,30 +806,28 @@ namespace LaserGRBL
 				}
 				else if (ProjectFileExtensions.Contains(System.IO.Path.GetExtension(filename).ToLowerInvariant()))  //load LaserGRBL project
 				{
+					if (LayerProjectSerializer.IsVersion2(filename))
+					{
+						LayerController.Load(filename);
+						return;
+					}
 					var project = Project.LoadProject(filename);
 
 					for (var i = 0; i < project.Count; i++)
 					{
 						var settings = project[i];
-
-						// Save image temporary
-						var imageFilepath = $"{System.IO.Path.GetTempPath()}\\{settings["ImageName"]}";
-						Project.SaveImage(settings["ImageBase64"].ToString(), imageFilepath);
-
-						// Restore settings
-						foreach (var setting in settings.Where(setting =>
-							setting.Key != "ImageName" && setting.Key != "ImageBase64"))
-							Settings.SetObject(setting.Key, setting.Value);
-
-						// Open file
-						Settings.SetObject("Core.LastOpenFile", imageFilepath);
-						if (i == 0)
-							ReOpenFile();
-						else
-							OpenFile(imageFilepath, true);
-
-						// Delete temporary image file
-						System.IO.File.Delete(imageFilepath);
+						string imageName = System.IO.Path.GetFileName(Convert.ToString(settings["ImageName"]));
+						if (string.IsNullOrEmpty(imageName)) throw new System.IO.InvalidDataException("Legacy project image name is invalid.");
+						string imageFilepath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lasergrbl-legacy-" + Guid.NewGuid().ToString("N") + "-" + imageName);
+						try
+						{
+							Project.SaveImage(Convert.ToString(settings["ImageBase64"]), imageFilepath);
+							foreach (var setting in settings.Where(setting => setting.Key != "ImageName" && setting.Key != "ImageBase64"))
+								Settings.SetObject(setting.Key, setting.Value);
+							Settings.SetObject("Core.LastOpenFile", imageFilepath);
+							if (i == 0) ReOpenFile(); else OpenFile(imageFilepath, true);
+						}
+						finally { if (System.IO.File.Exists(imageFilepath)) System.IO.File.Delete(imageFilepath); }
 					}
 				}
 				else
@@ -818,7 +856,7 @@ namespace LaserGRBL
 
 		public void SaveProgram(Form parent, bool header, bool footer, bool between, int cycles, bool useLFLineEndings)
 		{
-			if (HasProgram)
+			if (HasProgram && (!LayerController.IsLayered || (LayerController.IsCompilationCurrent && !LayerController.HasCompilationErrors)))
 			{
 				string filename = null;
 				using (SaveFileDialog sfd = new SaveFileDialog())
@@ -857,7 +895,7 @@ namespace LaserGRBL
 
 		public void SaveProject(Form parent)
 		{
-			if (HasProgram)
+			if ((HasProgram || LayerController.IsLayered) && (!LayerController.IsLayered || (LayerController.IsCompilationCurrent && !LayerController.HasCompilationErrors)))
 			{
 				string filename = null;
 				using (SaveFileDialog sfd = new SaveFileDialog())
@@ -890,7 +928,12 @@ namespace LaserGRBL
 				}
 
 				if (filename != null)
-					Project.StoreSettings(filename);
+				{
+					if (LayerController.IsLayered)
+						LayerController.Save(filename);
+					else
+						System.Windows.Forms.MessageBox.Show("Direct G-code does not contain editable layer data and cannot be saved as a layered project.", "Save project", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
+				}
 			}
 		}
 
@@ -1302,6 +1345,7 @@ namespace LaserGRBL
 
 		public void AbortProgram()
 		{
+			InterruptJobSession();
 			if (CanAbortProgram)
 			{
 				try
@@ -1360,6 +1404,7 @@ namespace LaserGRBL
 				ClearQueue(true);
 
 				mTP.Reset(first);
+				BeginJobSession(first, pass);
 
 				if (homing)
 				{
@@ -1374,9 +1419,14 @@ namespace LaserGRBL
 					OnJobCycle();
 
 
+				if (LayerController.IsLayered)
+				{
+					mQueuePtr.Enqueue(new GrblCommand("G21"));
+					mQueuePtr.Enqueue(new GrblCommand("G90"));
+				}
 				Logger.LogMessage("EnqueueProgram", "Push File, {0} lines", file.Count);
-				foreach (GrblCommand cmd in file)
-					mQueuePtr.Enqueue(cmd.Clone() as GrblCommand);
+				foreach (GrblCommand cmd in JobSession.Commands)
+					mQueuePtr.Enqueue(PrepareJobCommand(cmd));
 
 				mTP.JobStart(LoadedFile, mQueuePtr, first);
 				Logger.LogMessage("EnqueueProgram", "Running program, {0} lines", file.Count);
@@ -1560,6 +1610,12 @@ namespace LaserGRBL
 
 		public void CycleStartResume(bool auto)
 		{
+			if (!auto && JobSession != null && JobSession.Active && JobSession.State == JobExecutionState.Paused)
+			{
+				ShowJobResumeDialog(FormsHelper.MainForm);
+				return;
+			}
+			if (JobSession != null && JobSession.Active && (mJobPauseRequested || mJobRebuild != null)) return;
 			if (CanResumeHold)
 			{
 				mHoldByCoolingRequest = mHoldByUserRequest = false;
@@ -1571,6 +1627,12 @@ namespace LaserGRBL
 		{
 			if (CanFeedHold)
 			{
+				if (!cooling && JobSession != null && JobSession.Active)
+				{
+					mJobPauseRequested = true;
+					mJobStopped = false;
+					JobSession.SetState(JobExecutionState.Pausing);
+				}
 				mHoldByUserRequest = !cooling;
 				mHoldByCoolingRequest = cooling;
 				SendImmediate(33);
@@ -1587,6 +1649,7 @@ namespace LaserGRBL
 
 		public void GrblReset() //da comando manuale esterno (pulsante)
 		{
+			InterruptJobSession();
 			if (CanResetGrbl)
 			{
 				if (mTP.LastIssue == DetectedIssue.Unknown && MachineStatus == MacStatus.Run && InProgram)
@@ -2043,6 +2106,7 @@ namespace LaserGRBL
 						QueryPosition();
 
 					DetectHang();
+					TickJobRecovery();
 
 					TX.SleepTime = CanSend() ? CurrentThreadingMode.TxShort : CurrentThreadingMode.TxLong;
 					QueryTimer.Period = TimeSpan.FromMilliseconds(CurrentThreadingMode.StatusQuery);
@@ -2101,6 +2165,8 @@ namespace LaserGRBL
 
 		private GrblCommand PeekNextCommand()
 		{
+			if (BlockJobTransmission()) return null;
+			if (mPending.Any(command => command.IsJobCheckpoint)) return null;
 			if (HasPendingCommands() && mPending.Peek().IsWriteEEPROM) //if managing eeprom write act like sync
 				return null;
 			else if (CurrentStreamingMode == StreamingMode.Buffered && mQueuePtr.Count > 0) //sono buffered e ho roba da trasmettere
@@ -2139,6 +2205,7 @@ namespace LaserGRBL
 					RemoveManagedCommand();
 
 					SendToSerial(tosend);
+					if (JobSession != null && JobSession.Active) JobSession.Sent(tosend);
 
 					if (mTP.InProgram)
 						mTP.JobSent();
@@ -2202,12 +2269,14 @@ namespace LaserGRBL
 		// this feature can work only if $10=3 (status report with buffer size report enabled)
 		private void HandleMissingOK()
 		{
+			if (JobEditingLocked) return; // A fabricated OK cannot confirm a physical checkpoint.
 			if (IsBufferStuck() && MachineSayBufferFree())
 				UnlockFromBufferStuck(true);
 		}
 
 		public void UnlockFromBufferStuck(bool auto)
 		{
+			if (JobEditingLocked) return;
 			if (IsBufferStuck())
 				CreateFakeOK(mPending.Count, auto); //rispondi "ok" a tutti i comandi pending
 		}
@@ -2236,6 +2305,7 @@ namespace LaserGRBL
 
 		protected virtual void ManageReceivedLine(string rline)
 		{
+			ReadJobStartupLine(rline);
 			if (IsCommandReplyMessage(rline))
 				ManageCommandResponse(rline);
 			else if (IsRealtimeStatusMessage(rline))
@@ -2546,6 +2616,7 @@ namespace LaserGRBL
 
 		private void OnStartupMessage() //resetta tutto, così funziona anche nel caso di hard-unexpected reset
 		{
+			OnJobStartup();
 			lock (this)
 			{
 				ClearQueue(false);
@@ -2559,6 +2630,7 @@ namespace LaserGRBL
 
 		private void DetectUnexpectedReset()
 		{
+			if (mJobRebuild != null) return;
 			if (mTP.LastIssue == DetectedIssue.Unknown && MachineStatus == MacStatus.Run && InProgram)
 				SetIssue(DetectedIssue.UnexpectedReset);
 		}
@@ -2624,6 +2696,7 @@ namespace LaserGRBL
 					if (arr.Length > 6)
 						ComputeWCO(new GPoint(float.Parse(arr[4].Substring(5, arr[4].Length - 5), System.Globalization.NumberFormatInfo.InvariantInfo), float.Parse(arr[5], System.Globalization.NumberFormatInfo.InvariantInfo), float.Parse(arr[6], System.Globalization.NumberFormatInfo.InvariantInfo)));
 				}
+				OnJobRealtimeStatus(rline);
 			}
 			catch (Exception ex)
 			{
@@ -2764,6 +2837,7 @@ namespace LaserGRBL
 					GrblCommand pending = mPending.Peek();  //necessario fare peek
 					pending.SetResult(rline, SupportCSV);   //assegnare lo stato
 					mPending.Dequeue();                     //solo alla fine rimuoverlo dalla lista (per write config che si aspetta che lo stato sia noto non appena la coda si svuota)
+					OnJobCommandResponse(pending);
 
 					mUsedBuffer = Math.Max(0, mUsedBuffer - pending.SerialData.Length);
 
@@ -2782,7 +2856,7 @@ namespace LaserGRBL
 				}
 
 				if (InProgram && mQueuePtr.Count == 0 && !HasPendingCommands())
-					OnProgramEnd();
+					RequestJobEnd();
 			}
 			catch (Exception ex)
 			{
@@ -2962,6 +3036,7 @@ namespace LaserGRBL
 
 		private void OnProgramEnd()
 		{
+			if (JobSession != null && JobSession.Active && mLoopCount <= 1) JobSession.SetState(JobExecutionState.Completed);
 			if (mTP.JobEnd(mLoopCount == 1) && mLoopCount > 1 && mMachineStatus != MacStatus.Check)
 			{
 				Logger.LogMessage("CycleEnd", "Cycle Executed: {0} lines, {1} errors, {2}", file.Count, mTP.ErrorCount, Tools.Utils.TimeSpanToString(ProgramTime, Tools.Utils.TimePrecision.Second, Tools.Utils.TimePrecision.Second, ",", true));
@@ -2975,7 +3050,7 @@ namespace LaserGRBL
 				Logger.LogMessage("ProgramEnd", "Job Executed: {0} lines, {1} errors, {2}", file.Count, mTP.ErrorCount, Tools.Utils.TimeSpanToString(ProgramTime, Tools.Utils.TimePrecision.Second, Tools.Utils.TimePrecision.Second, ",", true));
 				mSentPtr.Add(new GrblMessage(string.Format("[{0} lines, {1} errors, {2}]", file.Count, mTP.ErrorCount, Tools.Utils.TimeSpanToString(ProgramTime, Tools.Utils.TimePrecision.Second, Tools.Utils.TimePrecision.Second, ",", true)), GrblMessage.MessageType.Diagnostic));
                 OnProgramEnded?.Invoke();
-                OnJobEnd();
+                if (!mJobFooterQueued) OnJobEnd();
 
 				SoundEvent.PlaySound(SoundEvent.EventId.Success);
 
@@ -3018,10 +3093,10 @@ namespace LaserGRBL
 		public bool QueueEmpty { get { return mQueue.Count == 0; } }
 
 		public bool CanLoadNewFile
-		{ get { return !InProgram && !file.CheckInUse(false); } }
+		{ get { return !JobEditingLocked && !InProgram && !file.CheckInUse(false); } }
 
 		public bool CanSendFile
-		{ get { return IsConnected && HasProgram && IdleOrCheck && QueueEmpty && !mDoingSend; } }
+		{ get { return !JobEditingLocked && IsConnected && HasProgram && IdleOrCheck && QueueEmpty && !mDoingSend && (!LayerController.IsLayered || (LayerController.IsCompilationCurrent && !LayerController.HasCompilationErrors)); } }
 
 		public bool CanAbortProgram
 		{ get { return IsConnected && HasProgram && (MachineStatus == MacStatus.Run || IsAnyHoldState(MachineStatus)) || !QueueEmpty; } }
@@ -3033,7 +3108,7 @@ namespace LaserGRBL
 		{ get { return IsConnected && MachineStatus != MacStatus.Disconnected; } }
 
 		public bool CanSendManualCommand
-		{ get { return IsConnected && MachineStatus != MacStatus.Disconnected && !InProgram; } }
+		{ get { return !JobEditingLocked && IsConnected && MachineStatus != MacStatus.Disconnected && !InProgram; } }
 
 		public bool CanDoHoming
 		{ get { return IsConnected && (MachineStatus == MacStatus.Idle || MachineStatus == GrblCore.MacStatus.Alarm) && Configuration.HomingEnabled; } }

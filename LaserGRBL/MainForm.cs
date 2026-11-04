@@ -499,7 +499,8 @@ namespace LaserGRBL
 			else
 				TTLEstimated.Text = Strings.MainFormEstimatedTime;
 
-			MnSaveProject.Enabled = MnAdvancedSave.Enabled = MnSaveProgram.Enabled = Core.HasProgram;
+			MnSaveProject.Enabled = (Core.HasProgram || Core.LayerController.IsLayered) && (!Core.LayerController.IsLayered || (Core.LayerController.IsCompilationCurrent && !Core.LayerController.HasCompilationErrors));
+			MnAdvancedSave.Enabled = MnSaveProgram.Enabled = Core.HasProgram && (!Core.LayerController.IsLayered || (Core.LayerController.IsCompilationCurrent && !Core.LayerController.HasCompilationErrors));
 			MnFileSend.Enabled = Core.CanSendFile;
 			MnStartFromPosition.Enabled = Core.CanSendFile;
 			MnRunMulti.Enabled = Core.CanSendFile || Core.CanResumeHold || Core.CanFeedHold;
@@ -591,7 +592,7 @@ namespace LaserGRBL
 
 		private void RefreshFormTitle()
 		{
-			string FormTitle = string.Format("LaserGRBL v{0}", Program.CurrentVersion.ToString(3));
+			string FormTitle = string.Format("FadeGRBL v{0}", Program.CurrentVersion.ToString(3));
 
 			if (Core.Type != Firmware.Grbl)
 				FormTitle = FormTitle + $" (for {Core.Type})";

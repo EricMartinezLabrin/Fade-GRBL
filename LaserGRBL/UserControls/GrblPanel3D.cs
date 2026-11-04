@@ -53,8 +53,6 @@ namespace LaserGRBL.UserControls
 		public float PointerSize { get; set; } = 3;
 		// last control size
 		private PointF mLastControlSize;
-		// drawing thread
-		private Tools.ThreadObject mThreadDraw;
 		// generated 3d bitmap
 		private DoubleBufferBmp mBmp = new DoubleBufferBmp();
 		// open gl object
@@ -65,6 +63,9 @@ namespace LaserGRBL.UserControls
 		private float mCurS;
 		bool forcez = false;
 		private bool mFSTrig;
+		private RectangleF? mSelectionBounds;
+		private Layering.VectorPath[] mSelectionContours = new Layering.VectorPath[0];
+		private bool mLayerEditing;
 
 		private Base.Mathematics.MobileDAverageCalculator FrameTime;
 		private Base.Mathematics.MobileDAverageCalculator SleepTime;
@@ -468,7 +469,7 @@ namespace LaserGRBL.UserControls
 
 		private void GrblPanel3D_DoubleClick(object sender, MouseEventArgs e)
 		{
-			if (Settings.GetObject("Click N Jog", true) && mMouseWorldPosition != null)
+			if (!mLayerEditing && Settings.GetObject("Click N Jog", true) && mMouseWorldPosition != null)
 			{
 				Core.JogToPosition((PointF)mMouseWorldPosition, e.Button == MouseButtons.Right);
 			}
@@ -498,7 +499,8 @@ namespace LaserGRBL.UserControls
 		private void GrblPanel3D_Disposed(object sender, EventArgs e)
 		{
 			DisposeGrbl3D();
-			mThreadDraw?.Dispose();
+			TH?.Dispose();
+			TH = null;
 		}
 
 		private void DrawPointer()
@@ -589,12 +591,12 @@ namespace LaserGRBL.UserControls
             int? maxDrawingX = null;
             int? minDrawingY = null;
             int? maxDrawingY = null;
-            if (Core?.LoadedFile?.Range.DrawingRange.ValidRange == true)
+            if (Core?.PreviewFile?.Range.DrawingRange.ValidRange == true)
             {
-                minDrawingX = (int)Core.LoadedFile.Range.DrawingRange.X.Min;
-                maxDrawingX = (int)Core.LoadedFile.Range.DrawingRange.X.Max;
-                minDrawingY = (int)Core.LoadedFile.Range.DrawingRange.Y.Min;
-                maxDrawingY = (int)Core.LoadedFile.Range.DrawingRange.Y.Max;
+                minDrawingX = (int)Core.PreviewFile.Range.DrawingRange.X.Min;
+                maxDrawingX = (int)Core.PreviewFile.Range.DrawingRange.X.Max;
+                minDrawingY = (int)Core.PreviewFile.Range.DrawingRange.Y.Min;
+                maxDrawingY = (int)Core.PreviewFile.Range.DrawingRange.Y.Max;
             }
 			bool showBoundingBox = Core?.ShowBoundingBox.Value ?? false;
             // draw horizontal
@@ -669,6 +671,7 @@ namespace LaserGRBL.UserControls
 				{
 					e.Graphics.DrawImage(bmp, new Point(0, 0));
 					DoGDIDraw(e);
+					DrawSelection(e.Graphics);
 				}
 				catch (Exception ex) { OnPaintException = ex;  }
 			}
@@ -691,8 +694,35 @@ namespace LaserGRBL.UserControls
 				DrawException(e, "3.Init Complete");
 			else if (OpCounter == 4)
 				DrawException(e, "4.Draw Begin");
-			else if (mBmp == null)
-				;
+		}
+
+		public PointF MachineToClient(PointF point)
+		{
+			return new PointF(
+				(float)((point.X - mCamera.Left) * Width / (mCamera.Right - mCamera.Left)),
+				(float)(Height - (point.Y - mCamera.Bottom) * Height / (mCamera.Top - mCamera.Bottom)));
+		}
+
+		public PointF ClientToMachine(PointF point)
+		{
+			return new PointF(
+				(float)(point.X / Width * (mCamera.Right - mCamera.Left) + mCamera.Left),
+				(float)((Height - point.Y) / Height * (mCamera.Top - mCamera.Bottom) + mCamera.Bottom));
+		}
+
+		public void SetSelectionBounds(RectangleF? bounds) { mSelectionBounds = bounds; Invalidate(); }
+		public void SetSelectionContours(System.Collections.Generic.IEnumerable<Layering.VectorPath> paths) { mSelectionContours = System.Linq.Enumerable.ToArray(paths); Invalidate(); }
+		public void SetLayerEditing(bool enabled) { mLayerEditing = enabled; }
+
+		private void DrawSelection(Graphics graphics)
+		{
+			Layering.LayerGeometry.DrawContours(graphics, mSelectionContours, MachineToClient);
+			if (!mSelectionBounds.HasValue) return;
+			RectangleF bounds = mSelectionBounds.Value;
+			PointF first = MachineToClient(new PointF(bounds.Left, bounds.Top));
+			PointF second = MachineToClient(new PointF(bounds.Right, bounds.Bottom));
+			RectangleF screen = RectangleF.FromLTRB(Math.Min(first.X, second.X), Math.Min(first.Y, second.Y), Math.Max(first.X, second.X), Math.Max(first.Y, second.Y));
+			using (Pen pen = new Pen(Color.DodgerBlue, 1.5f)) { pen.DashStyle = DashStyle.Dash; graphics.DrawRectangle(pen, screen.X, screen.Y, screen.Width, screen.Height); }
 		}
 
 		private void DrawException(PaintEventArgs e, string text)
@@ -918,7 +948,7 @@ namespace LaserGRBL.UserControls
         {
             mMousePos = null;
             Cursor.Current = Cursors.Cross;
-			mLastMousePos = e.Location;
+			mLastMousePos = mLayerEditing && e.Button == MouseButtons.Left ? (Point?)null : e.Location;
 			Invalidate();
         }
 
@@ -930,7 +960,7 @@ namespace LaserGRBL.UserControls
 			double yp = (Height - e.Y) / (double)Height * (mCamera.Top - mCamera.Bottom) + mCamera.Bottom;
 			mMouseWorldPosition = new PointF((float)xp, (float)yp);
             // if in drag
-            if (mLastMousePos != null && e.Button == MouseButtons.Left)
+			if (mLastMousePos != null && ((!mLayerEditing && e.Button == MouseButtons.Left) || (mLayerEditing && e.Button == MouseButtons.Middle)))
 			{
 				Cursor.Current = Cursors.SizeAll;
 				Point lastPos = (Point)mLastMousePos;
@@ -964,6 +994,7 @@ namespace LaserGRBL.UserControls
 			Core = core;
             Core.OnFileLoading += OnFileLoading;
 			Core.OnFileLoaded += OnFileLoaded;
+			Core.OnPreviewChanged += OnPreviewChanged;
 			Core.ShowExecutedCommands.OnChange += ShowExecutedCommands_OnChange;
 			Core.PreviewLineSize.OnChange += PrerviewLineSize_OnChange;
 			Core.ShowLaserOffMovements.OnChange += ShowLaserOffMovements_OnChange;
@@ -974,6 +1005,13 @@ namespace LaserGRBL.UserControls
 			Core.OnProgramEnded += OnProgramEnded;
 		}
 
+		private void OnPreviewChanged()
+		{
+			DisposeGrbl3D();
+			mReload = true;
+			RR.Set();
+		}
+
         private void OnFileLoading(long elapsed, string filename)
         {
 			mMessage = Strings.Loading;
@@ -981,7 +1019,7 @@ namespace LaserGRBL.UserControls
 
         private void OnProgramEnded()
 		{
-			foreach (var command in Core.LoadedFile.Commands)
+			foreach (var command in Core.PreviewFile.Commands)
 			{
 				command.ClearResult();
 			}
@@ -1048,9 +1086,9 @@ namespace LaserGRBL.UserControls
 
 			XYRange autosizeRange;
 
-			if (Core?.LoadedFile.Range.DrawingRange.ValidRange == true)
+			if (Core?.PreviewFile.Range.DrawingRange.ValidRange == true)
 			{
-				autosizeRange = Core.AutoSizeOnDrawing.Value ? Core.LoadedFile.Range.DrawingRange : Core.LoadedFile.Range.MovingRange;
+				autosizeRange = Core.AutoSizeOnDrawing.Value ? Core.PreviewFile.Range.DrawingRange : Core.PreviewFile.Range.MovingRange;
 			}
 			else
 			{
