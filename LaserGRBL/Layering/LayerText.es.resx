@@ -7,6 +7,7 @@
   <data name="NewLayer" xml:space="preserve"><value>Nueva capa</value></data>
   <data name="DuplicateLayer" xml:space="preserve"><value>Duplicar capa</value></data>
   <data name="DeleteLayer" xml:space="preserve"><value>Eliminar capa</value></data>
+  <data name="DeleteLayersConfirm" xml:space="preserve"><value>¿Eliminar las {0} capas seleccionadas y todo su contenido?</value></data>
   <data name="MoveUp" xml:space="preserve"><value>Subir capa</value></data>
   <data name="MoveDown" xml:space="preserve"><value>Bajar capa</value></data>
   <data name="Advanced" xml:space="preserve"><value>Propiedades avanzadas</value></data>
@@ -88,4 +89,30 @@
   <data name="PassOrderLayersExplanation" xml:space="preserve"><value>Hace una pasada de todos los objetos de la capa y repite la capa hasta completar sus pasadas.</value></data>
   <data name="PassOrderStart" xml:space="preserve"><value>Continuar</value></data>
   <data name="JobObjectProgress" xml:space="preserve"><value>Capa: {0} · Objeto {1} · Pasada {2}/{3} · {4} completadas</value></data>
+  <data name="DesignUntitled" xml:space="preserve"><value>Proyecto sin título</value></data>
+  <data name="DesignDisconnected" xml:space="preserve"><value>Desconectado</value></data>
+  <data name="DesignLight" xml:space="preserve"><value>Fade · Claro</value></data>
+  <data name="DesignDark" xml:space="preserve"><value>Fade · Oscuro</value></data>
+  <data name="DesignOpen" xml:space="preserve"><value>Abrir</value></data>
+  <data name="DesignSave" xml:space="preserve"><value>Guardar</value></data>
+  <data name="DesignStart" xml:space="preserve"><value>Iniciar</value></data>
+  <data name="DesignStop" xml:space="preserve"><value>Detener</value></data>
+  <data name="DesignConsoleHide" xml:space="preserve"><value>Ocultar consola</value></data>
+  <data name="DesignConsoleShow" xml:space="preserve"><value>Mostrar consola</value></data>
+  <data name="DesignRepetitions" xml:space="preserve"><value>Repeticiones. Por objeto: pasadas de capa × repeticiones, completas antes del siguiente objeto.</value></data>
+  <data name="DesignAdvanced" xml:space="preserve"><value>Avanzado</value></data>
+  <data name="DesignOutput" xml:space="preserve"><value>Salida</value></data>
+  <data name="DesignVisible" xml:space="preserve"><value>Visible</value></data>
+  <data name="DesignLayer" xml:space="preserve"><value>Capa</value></data>
+  <data name="DesignMode" xml:space="preserve"><value>Modo</value></data>
+  <data name="DesignPasses" xml:space="preserve"><value>Pasadas</value></data>
+  <data name="DesignOutputHint" xml:space="preserve"><value>Incluir esta capa en el trabajo de la máquina</value></data>
+  <data name="DesignVisibleHint" xml:space="preserve"><value>Mostrar esta capa en el lienzo; no activa su salida</value></data>
+  <data name="DesignModeLine" xml:space="preserve"><value>Línea</value></data>
+  <data name="DesignModeFill" xml:space="preserve"><value>Relleno</value></data>
+  <data name="DesignModeOffsetFill" xml:space="preserve"><value>Relleno concéntrico</value></data>
+  <data name="DesignModeImage" xml:space="preserve"><value>Imagen</value></data>
+  <data name="DesignGenerate" xml:space="preserve"><value>Generar</value></data>
+  <data name="DesignHelp" xml:space="preserve"><value>Ayuda</value></data>
+  <data name="DesignEmpty" xml:space="preserve"><value>Abre un SVG o una imagen para comenzar</value></data>
 </root>

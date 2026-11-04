@@ -193,7 +193,13 @@ namespace LaserGRBL.Layering
             return copies;
         }
 
-        public void Remove(LaserLayer layer) { if (Document.Layers.Remove(layer)) Changed(); }
+        public void Remove(LaserLayer layer) { RemoveLayers(new[] { layer }); }
+        public void RemoveLayers(IEnumerable<LaserLayer> layers)
+        {
+            if (Document == null || core.JobEditingLocked || layers == null) return;
+            HashSet<LaserLayer> selected = new HashSet<LaserLayer>(layers);
+            if (Document.Layers.RemoveAll(layer => selected.Contains(layer)) > 0) Changed();
+        }
         public void Move(LaserLayer layer, int delta)
         {
             int oldIndex = Document.Layers.IndexOf(layer), newIndex = Math.Max(0, Math.Min(Document.Layers.Count - 1, oldIndex + delta));

@@ -191,6 +191,7 @@ namespace LaserGRBL.UserControls
 
         public static void SetTheme(Control control, bool recursive = false)
         {
+            if (control is Form) FadeTheme.Apply(control);
             SetTheme(control);
             if (recursive)
             {

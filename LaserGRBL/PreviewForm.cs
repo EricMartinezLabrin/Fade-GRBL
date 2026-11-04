@@ -28,7 +28,7 @@ namespace LaserGRBL
 		private SplitContainer WorkspaceSplit;
 		private int ExpandedLayerWidth = 430;
 		private bool SplitInitialized;
-		private Panel CanvasHost;
+		private TableLayoutPanel CanvasHost;
 		private ToolStrip SizeToolbar;
 		private ToolStripTextBox WidthBox;
 		private ToolStripTextBox HeightBox;
@@ -36,6 +36,7 @@ namespace LaserGRBL
 		private ToolStripButton ObjectModeButton;
 		private ToolStripButton DeleteObjectsButton;
         private ToolStripButton CopyButton, PasteButton, DuplicateButton;
+        private FlowLayoutPanel EmptyState;
 		private readonly List<VectorSelection> SelectedObjects = new List<VectorSelection>();
 		private Dictionary<VectorSelection, VectorPath> ObjectDragPaths;
 		private bool MovingObjects;
@@ -67,7 +68,10 @@ namespace LaserGRBL
 			tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			tableLayoutPanel1.Controls.Add(WorkspaceSplit, 0, 0);
 			WorkspaceSplit.Panel2.Controls.Add(LayerManager);
-			CanvasHost = new Panel { Dock = DockStyle.Fill };
+			CanvasHost = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = Padding.Empty };
+            CanvasHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            CanvasHost.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            CanvasHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			WorkspaceSplit.Panel1.Controls.Add(CanvasHost);
 			BuildSizeToolbar();
 			WorkspaceSplit.SplitterMoved += (s, e) =>
@@ -164,10 +168,11 @@ namespace LaserGRBL
 
 			if (mCore != null) GrblPanel.SetCore(mCore);
             (GrblPanel as Control).Dock = DockStyle.Fill;
-			CanvasHost.Controls.Add(GrblPanel as Control);
+			CanvasHost.Controls.Add(GrblPanel as Control, 0, 1);
 			(GrblPanel as Control).BringToFront();
 			SizeToolbar.BringToFront();
 			CreateResizeHandle();
+            CreateEmptyState();
 			Control canvas = GrblPanel as Control;
 			canvas.MouseDown += CanvasMouseDown;
 			canvas.MouseMove += CanvasMouseMove;
@@ -191,7 +196,7 @@ namespace LaserGRBL
 			SizeToolbar.Items.Insert(0, new ToolStripSeparator());
 			SizeToolbar.Items.Insert(0, ObjectModeButton); SizeToolbar.Items.Insert(0, layersButton);
 			DeleteObjectsButton = new ToolStripButton(LayerText.Get("DeleteObjects"));
-			DeleteObjectsButton.Click += (s, e) => DeleteSelectedObjects(); SizeToolbar.Items.Add(DeleteObjectsButton);
+			DeleteObjectsButton.Click += (s, e) => { if (ObjectModeButton.Checked) DeleteSelectedObjects(); else LayerManager.DeleteSelectedLayers(); }; SizeToolbar.Items.Add(DeleteObjectsButton);
 			CopyButton = new ToolStripButton(LayerText.Get("Copy")) { ToolTipText = "Ctrl+C" };
             PasteButton = new ToolStripButton(LayerText.Get("Paste")) { ToolTipText = "Ctrl+V" };
             DuplicateButton = new ToolStripButton(LayerText.Get("Duplicate")) { ToolTipText = "Ctrl+D" };
@@ -201,13 +206,25 @@ namespace LaserGRBL
             SizeToolbar.Items.AddRange(new ToolStripItem[] { CopyButton, PasteButton, DuplicateButton });
             WidthBox.KeyDown += SizeBoxKeyDown; HeightBox.KeyDown += SizeBoxKeyDown;
 			WidthBox.Leave += (s, e) => ApplyTypedSize(true); HeightBox.Leave += (s, e) => ApplyTypedSize(false);
-			CanvasHost.Controls.Add(SizeToolbar);
+			CanvasHost.Controls.Add(SizeToolbar, 0, 0);
 		}
 
+        private void CreateEmptyState()
+        {
+            EmptyState = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = ColorScheme.PreviewBackColor };
+            EmptyState.Controls.Add(new Label { AutoSize = true, Text = LayerText.Get("DesignEmpty"), Font = FadeTheme.BodyFont, ForeColor = ColorScheme.TextSecondary, Margin = new Padding(8) });
+            var open = new Button { AutoSize = true, Text = LayerText.Get("DesignOpen"), MinimumSize = new Size(100, 32), Margin = new Padding(8) };
+            open.Click += (s, e) => { if (mCore != null && mCore.CanLoadNewFile) mCore.OpenFile(); };
+            EmptyState.Controls.Add(open); FadeTheme.SetButtonRole(open, FadeButtonRole.Primary);
+            var canvas = GrblPanel as Control; canvas.Controls.Add(EmptyState);
+            Action position = () => { EmptyState.Left = Math.Max(0, (canvas.ClientSize.Width - EmptyState.Width) / 2); EmptyState.Top = Math.Max(0, (canvas.ClientSize.Height - EmptyState.Height) / 2); };
+            canvas.Resize += (s, e) => position(); EmptyState.SizeChanged += (s, e) => position(); position();
+        }
 		private void CreateResizeHandle()
 		{
 			if (ResizeHandle != null) ResizeHandle.Dispose();
-			ResizeHandle = new Panel { Size = new Size(12, 12), BackColor = Color.DodgerBlue, Cursor = Cursors.SizeNWSE, Visible = false };
+			ResizeHandle = new Panel { Size = new Size(14, 14), BackColor = ColorScheme.BrandAmber, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.SizeNWSE, Visible = false };
 			ResizeHandle.MouseDown += ResizeHandleMouseDown;
 			ResizeHandle.MouseMove += ResizeHandleMouseMove;
 			ResizeHandle.MouseUp += ResizeHandleMouseUp;
@@ -224,12 +241,20 @@ namespace LaserGRBL
 
 		private void RefreshSelectionEditor()
 		{
+            if (EmptyState != null)
+            {
+                bool empty = mCore == null || (!mCore.HasProgram && (!mCore.LayerController.IsLayered || !mCore.LayerController.Document.Layers.Any(layer => layer.HasContent)));
+                EmptyState.Visible = empty;
+                EmptyState.Controls[1].Enabled = mCore != null && mCore.CanLoadNewFile;
+            }
 			RectangleF bounds = RectangleF.Empty;
 			bool layered = mCore != null && !mCore.JobEditingLocked && mCore.LayerController.IsLayered;
 			GrblPanel.SetLayerEditing(layered);
 			bool objects = ObjectModeButton.Checked;
 			SelectedObjects.RemoveAll(item => !item.IsCurrent(mCore == null ? null : mCore.LayerController.Document));
-			DeleteObjectsButton.Enabled = layered && objects && SelectedObjects.Count > 0;
+			DeleteObjectsButton.Text = LayerText.Get(objects ? "DeleteObjects" : "DeleteLayer");
+			DeleteObjectsButton.ToolTipText = DeleteObjectsButton.Text + " (Del)";
+			DeleteObjectsButton.Enabled = layered && (objects ? SelectedObjects.Count > 0 : SelectedLayers.Count > 0);
 			GrblPanel.SetSelectionContours(objects ? SelectedObjects.Select(item => LayerGeometry.Transform(item.Path, item.Layer)) : Enumerable.Empty<VectorPath>());
 			bool enabled = layered && !objects && LayerGeometry.TryGetBounds(SelectedLayers, out bounds);
 			SizeToolbar.Enabled = mCore != null && mCore.LayerController.IsLayered;
@@ -473,9 +498,14 @@ namespace LaserGRBL
                 if (keyData == (Keys.Control | Keys.C)) { if (LayerManager.ContainsFocus) mCore.LayerController.CopyLayers(SelectedLayers); else CopyCanvasSelection(); RefreshSelectionEditor(); return true; }
                 if (keyData == (Keys.Control | Keys.V)) { PasteCanvasSelection(false); return true; }
                 if (keyData == (Keys.Control | Keys.D)) { PasteCanvasSelection(true, LayerManager.ContainsFocus); return true; }
+                if (keyData == Keys.Delete)
+                {
+                    if (!LayerManager.ContainsFocus && ObjectModeButton.Checked) DeleteSelectedObjects();
+                    else LayerManager.DeleteSelectedLayers();
+                    return true;
+                }
             }
 			if (keyData == Keys.Escape && canvasFocused && ObjectModeButton.Checked) { SelectedObjects.Clear(); RefreshSelectionEditor(); return true; }
-			if (keyData == Keys.Delete && canvasFocused && ObjectModeButton.Checked) { DeleteSelectedObjects(); return true; }
 			if (keyData == (Keys.Control | Keys.A) && mCore != null && mCore.LayerController.IsLayered && !WidthBox.Focused && !HeightBox.Focused && !LayerManager.IsEditingText)
 			{
 				if (ObjectModeButton.Checked && canvasFocused)
@@ -1015,6 +1045,9 @@ namespace LaserGRBL
 		{
             GrblPanel.OnColorChange();
 			LayerManager.ApplyTheme();
+            FadeTheme.Apply(SizeToolbar);
+            if (EmptyState != null) { EmptyState.BackColor = ColorScheme.PreviewBackColor; EmptyState.Controls[0].ForeColor = ColorScheme.TextSecondary; FadeTheme.SetButtonRole((Button)EmptyState.Controls[1], FadeButtonRole.Primary); }
+            if (ResizeHandle != null) ResizeHandle.BackColor = ColorScheme.BrandAmber;
 		}
 
 		private void BtnZeroing_Click(object sender, EventArgs e)

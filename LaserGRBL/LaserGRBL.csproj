@@ -176,6 +176,11 @@
       <DependentUpon>LaserUsage.cs</DependentUpon>
     </Compile>
     <Compile Include="Layering\LaserDocument.cs" />
+    <Compile Include="UserControls\FadeColorScheme.cs" />
+    <Compile Include="UserControls\FadeTheme.cs" />
+    <Compile Include="UserControls\FadeBrandHeader.cs" />
+    <Compile Include="MainForm.Design.cs" />
+    <Compile Include="ConnectLogForm.Design.cs" />
     <Compile Include="Layering\CanvasClipboard.cs" />
     <Compile Include="Layering\ObjectCutOrder.cs" />
     <Compile Include="Layering\LayerGeometry.cs" />
@@ -2523,6 +2528,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Layering\LayerText.resx" />
+    <EmbeddedResource Include="Grafica\FadeTechLogo.png" />
     <EmbeddedResource Include="Layering\LayerText.es.resx" />
   </ItemGroup>
   <ItemGroup>

@@ -23,6 +23,10 @@ The application targets .NET Framework 4.0 and produces output under `LaserGRBL/
 
 Follow the surrounding C# style; this older codebase contains both tabs and four-space indentation, so avoid unrelated reformatting. Use PascalCase for types and public members, camelCase for locals and parameters, and preserve established folder namespaces. Keep WinForms designer-generated code in `.Designer.cs`; make behavioral changes in the corresponding `.cs` file. When changing visible text, update the neutral `.resx` and relevant localized resources without renaming existing resource keys.
 
+## UI Design Guidelines
+
+Before creating or modifying any UI component, always read and follow the root [`design.md`](design.md). Apply its palette, typography, spacing, component states, accessibility, and interaction rules to every UI change, including forms, dialogs, menus, toolbars, tables, and canvas controls. Reuse the existing shared theme and components to keep the interface consistent.
+
 ## Testing Guidelines
 
 Tests use xUnit with `[Fact]` and `[Theory]`/`[InlineData]`. Name test classes after the subject and methods as `Method_Scenario_ExpectedResult`. Add focused regression tests near the affected feature. There is no enforced coverage threshold, but exercise boundary and failure cases. Hardware-dependent changes also require a manual smoke test without issuing unsafe machine commands.

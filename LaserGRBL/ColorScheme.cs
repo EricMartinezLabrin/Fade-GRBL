@@ -348,7 +348,9 @@ namespace LaserGRBL
             RedLaser,
             Dark,
             Hacker,
-            Nighty
+            Nighty,
+            FadeLight,
+            FadeDark
         }
 
         private static Dictionary<Scheme, IColorScheme> mDefaultSchemas;
@@ -363,7 +365,9 @@ namespace LaserGRBL
             AddSchema(new SchemeDark());
             AddSchema(new SchemeHacker());
             AddSchema(new SchemeNighty());
-            CurrentScheme = Scheme.RedLaser;
+            AddSchema(new FadeColorScheme(false));
+            AddSchema(new FadeColorScheme(true));
+            CurrentScheme = Scheme.FadeLight;
 		}
 
         public static void AddSchema(IColorScheme colorSchema)
@@ -376,6 +380,17 @@ namespace LaserGRBL
         private static IColorScheme CurrentSchemeColors => mDefaultSchemas[CurrentScheme];
 
         public static bool DarkScheme => CurrentSchemeColors.IsDark;
+        public static bool IsFade => CurrentScheme == Scheme.FadeLight || CurrentScheme == Scheme.FadeDark;
+        public static Color BrandAmber => Color.FromArgb(246, 180, 42);
+        public static Color BrandGraphite => Color.FromArgb(57, 62, 70);
+        public static Color AppBackground => DarkScheme ? Color.FromArgb(32, 36, 43) : Color.FromArgb(246, 247, 249);
+        public static Color SurfaceSubtle => DarkScheme ? Color.FromArgb(50, 56, 66) : Color.FromArgb(240, 242, 245);
+        public static Color BorderSubtle => DarkScheme ? Color.FromArgb(81, 91, 105) : Color.FromArgb(214, 218, 225);
+        public static Color TextSecondary => DarkScheme ? Color.FromArgb(188, 195, 205) : Color.FromArgb(98, 106, 118);
+        public static Color SelectionBackground => DarkScheme ? Color.FromArgb(70, 59, 36) : Color.FromArgb(255, 243, 214);
+        public static Color FocusRing => DarkScheme ? BrandAmber : Color.FromArgb(138, 90, 0);
+        public static Color PrimaryHover => Color.FromArgb(229, 163, 27);
+        public static Color PrimaryPressed => Color.FromArgb(212, 148, 18);
 
         public static Color FormBackColor => CurrentSchemeColors.FormBackColor;
         public static Color FormForeColor => CurrentSchemeColors.FormForeColor;
@@ -439,6 +454,7 @@ namespace LaserGRBL
         {
             get
             {
+                if (IsFade) return SurfaceSubtle;
                 if (DarkScheme)
                     return ChangeColorBrightness(FormBackColor, +0.1f);
                 else
@@ -450,6 +466,7 @@ namespace LaserGRBL
         {
             get
             {
+                if (IsFade) return SelectionBackground;
                 if (DarkScheme)
                     return ChangeColorBrightness(FormBackColor, +0.2f);
                 else
@@ -461,6 +478,7 @@ namespace LaserGRBL
         {
             get
             {
+                if (IsFade) return BorderSubtle;
                 if (DarkScheme)
                     return ChangeColorBrightness(FormBackColor, +0.15f);
                 else

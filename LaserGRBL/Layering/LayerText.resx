@@ -7,6 +7,7 @@
   <data name="NewLayer" xml:space="preserve"><value>New layer</value></data>
   <data name="DuplicateLayer" xml:space="preserve"><value>Duplicate layer</value></data>
   <data name="DeleteLayer" xml:space="preserve"><value>Delete layer</value></data>
+  <data name="DeleteLayersConfirm" xml:space="preserve"><value>Delete the {0} selected layers and all their contents?</value></data>
   <data name="MoveUp" xml:space="preserve"><value>Move layer up</value></data>
   <data name="MoveDown" xml:space="preserve"><value>Move layer down</value></data>
   <data name="Advanced" xml:space="preserve"><value>Advanced properties</value></data>
@@ -88,4 +89,30 @@
   <data name="PassOrderLayersExplanation" xml:space="preserve"><value>Run one pass of every object in the layer, then repeat the layer until all its passes are complete.</value></data>
   <data name="PassOrderStart" xml:space="preserve"><value>Continue</value></data>
   <data name="JobObjectProgress" xml:space="preserve"><value>Layer: {0} · Object {1} · Pass {2}/{3} · {4} completed</value></data>
+  <data name="DesignUntitled" xml:space="preserve"><value>Untitled project</value></data>
+  <data name="DesignDisconnected" xml:space="preserve"><value>Disconnected</value></data>
+  <data name="DesignLight" xml:space="preserve"><value>Fade · Light</value></data>
+  <data name="DesignDark" xml:space="preserve"><value>Fade · Dark</value></data>
+  <data name="DesignOpen" xml:space="preserve"><value>Open</value></data>
+  <data name="DesignSave" xml:space="preserve"><value>Save</value></data>
+  <data name="DesignStart" xml:space="preserve"><value>Start</value></data>
+  <data name="DesignStop" xml:space="preserve"><value>Stop</value></data>
+  <data name="DesignConsoleHide" xml:space="preserve"><value>Hide console</value></data>
+  <data name="DesignConsoleShow" xml:space="preserve"><value>Show console</value></data>
+  <data name="DesignRepetitions" xml:space="preserve"><value>Repetitions. By object: layer passes × repetitions, completed before the next object.</value></data>
+  <data name="DesignAdvanced" xml:space="preserve"><value>Advanced</value></data>
+  <data name="DesignOutput" xml:space="preserve"><value>Output</value></data>
+  <data name="DesignVisible" xml:space="preserve"><value>Visible</value></data>
+  <data name="DesignLayer" xml:space="preserve"><value>Layer</value></data>
+  <data name="DesignMode" xml:space="preserve"><value>Mode</value></data>
+  <data name="DesignPasses" xml:space="preserve"><value>Passes</value></data>
+  <data name="DesignOutputHint" xml:space="preserve"><value>Include this layer in the machine job</value></data>
+  <data name="DesignVisibleHint" xml:space="preserve"><value>Show this layer on the canvas; does not enable output</value></data>
+  <data name="DesignModeLine" xml:space="preserve"><value>Line</value></data>
+  <data name="DesignModeFill" xml:space="preserve"><value>Fill</value></data>
+  <data name="DesignModeOffsetFill" xml:space="preserve"><value>Offset fill</value></data>
+  <data name="DesignModeImage" xml:space="preserve"><value>Image</value></data>
+  <data name="DesignGenerate" xml:space="preserve"><value>Generate</value></data>
+  <data name="DesignHelp" xml:space="preserve"><value>Help</value></data>
+  <data name="DesignEmpty" xml:space="preserve"><value>Open an SVG or image to get started</value></data>
 </root>

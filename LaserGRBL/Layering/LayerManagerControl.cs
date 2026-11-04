@@ -12,8 +12,13 @@ namespace LaserGRBL.Layering
         private sealed class LayerGrid : DataGridView
         {
             public Action<Keys> ClipboardCommand;
+            public Action DeleteCommand;
             protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
             {
+                if (!IsCurrentCellInEditMode && keyData == Keys.Delete && DeleteCommand != null)
+                {
+                    DeleteCommand(); return true;
+                }
                 if (!IsCurrentCellInEditMode && ClipboardCommand != null &&
                     (keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.V) || keyData == (Keys.Control | Keys.D)))
                 {
@@ -28,6 +33,11 @@ namespace LaserGRBL.Layering
         private bool refreshing;
         private bool refreshPending;
         private Point dragStart;
+        private sealed class ModeChoice
+        {
+            public LayerMode Value { get; set; }
+            public string Caption { get; set; }
+        }
         public event Action<bool> CollapseChanged;
         public event Action<bool, IList<LaserLayer>> CopiesInserted;
         public event Action<IList<LaserLayer>> SelectedLayersChanged;
@@ -35,6 +45,7 @@ namespace LaserGRBL.Layering
 
         public LayerManagerControl()
         {
+            if (ColorScheme.IsFade) Font = UserControls.FadeTheme.BodyFont;
             Dock = DockStyle.Fill;
             MinimumSize = new Size(34, 0);
             BuildToolbar();
@@ -63,6 +74,9 @@ namespace LaserGRBL.Layering
             grid.DefaultCellStyle.SelectionBackColor = ColorScheme.MenuHighlightColor; grid.DefaultCellStyle.SelectionForeColor = ColorScheme.FormForeColor;
             grid.ColumnHeadersDefaultCellStyle.BackColor = ColorScheme.FormBackColor; grid.ColumnHeadersDefaultCellStyle.ForeColor = ColorScheme.FormForeColor;
             grid.EnableHeadersVisualStyles = false;
+            UserControls.FadeTheme.Apply(this);
+            UserControls.FadeTheme.StyleGrid(grid);
+            status.ForeColor = ColorScheme.TextSecondary;
         }
 
         private void BuildToolbar()
@@ -72,10 +86,10 @@ namespace LaserGRBL.Layering
             AddButton(LayerText.Get("Copy"), "Ctrl+C", (s, e) => CopySelection());
             AddButton(LayerText.Get("Paste"), "Ctrl+V", (s, e) => PasteSelection(false));
             AddButton(LayerText.Get("Duplicate"), "Ctrl+D", (s, e) => PasteSelection(true));
-            AddButton("-", LayerText.Get("DeleteLayer"), DeleteSelected);
+            AddButton(LayerText.Get("DeleteLayer"), LayerText.Get("DeleteLayer") + " (Del)", (s, e) => DeleteSelectedLayers());
             tools.Items.Add(new ToolStripSeparator());
-            AddButton("Up", LayerText.Get("MoveUp"), (s, e) => MoveSelected(-1)); AddButton("Down", LayerText.Get("MoveDown"), (s, e) => MoveSelected(1));
-            AddButton("Edit", LayerText.Get("Advanced"), EditAdvanced); tools.Items.Add(new ToolStripSeparator()); AddButton("<", LayerText.Get("Collapse"), ToggleCollapsed);
+            AddButton("↑", LayerText.Get("MoveUp"), (s, e) => MoveSelected(-1)); AddButton("↓", LayerText.Get("MoveDown"), (s, e) => MoveSelected(1));
+            AddButton(LayerText.Get("DesignAdvanced"), LayerText.Get("Advanced"), EditAdvanced); tools.Items.Add(new ToolStripSeparator()); AddButton("‹", LayerText.Get("Collapse"), ToggleCollapsed);
         }
 
         private void AddButton(string text, string tooltip, EventHandler handler)
@@ -86,6 +100,7 @@ namespace LaserGRBL.Layering
 
         private void BuildGrid()
         {
+            grid.DeleteCommand = DeleteSelectedLayers;
             grid.ClipboardCommand = keys =>
             {
                 if (keys == (Keys.Control | Keys.C)) CopySelection();
@@ -95,13 +110,14 @@ namespace LaserGRBL.Layering
             grid.Dock = DockStyle.Fill; grid.AllowUserToAddRows = false; grid.AllowUserToDeleteRows = false; grid.AllowUserToResizeRows = false;
             grid.AllowDrop = true;
             grid.RowHeadersWidth = 24; grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect; grid.MultiSelect = true; grid.AutoGenerateColumns = false;
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Output", HeaderText = "Out", Width = 34 });
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Visible", HeaderText = "Eye", Width = 34 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LayerName", HeaderText = "Layer", Width = 90 });
-            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Mode", HeaderText = "Mode", Width = 78, FlatStyle = FlatStyle.Flat });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Output", HeaderText = LayerText.Get("DesignOutput"), Width = 56, ToolTipText = LayerText.Get("DesignOutputHint") });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Visible", HeaderText = LayerText.Get("DesignVisible"), Width = 56, ToolTipText = LayerText.Get("DesignVisibleHint") });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LayerName", HeaderText = LayerText.Get("DesignLayer"), Width = 100 });
+            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Mode", HeaderText = LayerText.Get("DesignMode"), Width = 90, DropDownWidth = 180, FlatStyle = FlatStyle.Flat });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Speed", HeaderText = "mm/min", Width = 58 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Power", HeaderText = "%", Width = 38 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Passes", HeaderText = "Pass", Width = 38 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Passes", HeaderText = LayerText.Get("DesignPasses"), Width = 64 });
+            foreach (string name in new[] { "Speed", "Power", "Passes" }) grid.Columns[name].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             grid.CellValueChanged += GridCellValueChanged;
             grid.SelectionChanged += (s, e) => RaiseSelectionChanged();
             grid.CurrentCellDirtyStateChanged += (s, e) => { if (grid.IsCurrentCellDirty && (grid.CurrentCell is DataGridViewCheckBoxCell || grid.CurrentCell is DataGridViewComboBoxCell)) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
@@ -131,7 +147,9 @@ namespace LaserGRBL.Layering
                 DataGridViewRow row = grid.Rows[grid.Rows.Add()]; row.Tag = layer;
                 row.Cells["Output"].Value = layer.OutputEnabled; row.Cells["Visible"].Value = layer.Visible; row.Cells["LayerName"].Value = layer.Name;
                 DataGridViewComboBoxCell modeCell = (DataGridViewComboBoxCell)row.Cells["Mode"];
-                if (layer.ContentKind == LayerContentKind.Raster) modeCell.Items.Add(LayerMode.Image); else { modeCell.Items.Add(LayerMode.Line); modeCell.Items.Add(LayerMode.Fill); modeCell.Items.Add(LayerMode.OffsetFill); }
+                LayerMode[] modes = layer.ContentKind == LayerContentKind.Raster ? new[] { LayerMode.Image } : new[] { LayerMode.Line, LayerMode.Fill, LayerMode.OffsetFill };
+                modeCell.DisplayMember = "Caption"; modeCell.ValueMember = "Value";
+                modeCell.DataSource = modes.Select(mode => new ModeChoice { Value = mode, Caption = LayerText.Get("DesignMode" + mode) }).ToList();
                 modeCell.Value = layer.Mode; row.Cells["Speed"].Value = layer.SpeedMmPerMinute; row.Cells["Power"].Value = layer.PowerPercent.ToString("0.#"); row.Cells["Passes"].Value = layer.Passes;
                 row.HeaderCell.Style.BackColor = layer.Color; row.HeaderCell.ToolTipText = LayerText.Get("ChangeColor");
                 if (layer.HasError) row.ErrorText = layer.StatusMessage; else if (!string.IsNullOrEmpty(layer.StatusMessage)) row.Cells["LayerName"].ToolTipText = layer.StatusMessage;
@@ -236,7 +254,15 @@ namespace LaserGRBL.Layering
         }
         private void SelectLayer(LaserLayer layer) { SelectLayers(new[] { layer }); }
         private void RaiseSelectionChanged() { if (!refreshing && SelectedLayersChanged != null) SelectedLayersChanged(SelectedLayers()); }
-        private void DeleteSelected(object sender, EventArgs e) { if (!CanEdit()) return; LaserLayer layer = SelectedLayer(); if (layer == null) return; if (layer.HasContent && MessageBox.Show(LayerText.Get("DeleteConfirm"), LayerText.Get("Layers"), MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return; core.LayerController.Remove(layer); }
+        public void DeleteSelectedLayers()
+        {
+            if (!CanEdit() || !grid.EndEdit()) return;
+            IList<LaserLayer> layers = SelectedLayers();
+            if (layers.Count == 0) return;
+            string message = layers.Count == 1 ? LayerText.Get("DeleteConfirm") : string.Format(LayerText.Get("DeleteLayersConfirm"), layers.Count);
+            if (layers.Any(layer => layer.HasContent) && MessageBox.Show(this, message, LayerText.Get("Layers"), MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+            core.LayerController.RemoveLayers(layers);
+        }
         private void MoveSelected(int delta) { if (!CanEdit()) return; LaserLayer layer = SelectedLayer(); if (layer != null) { core.LayerController.Move(layer, delta); SelectLayer(layer); } }
 
         private void GridMouseMove(object sender, MouseEventArgs e)

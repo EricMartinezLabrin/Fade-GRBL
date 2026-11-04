@@ -31,7 +31,8 @@ namespace LaserGRBL
             tableLayoutPanel5.Controls.Add(actions, 0, 4); tableLayoutPanel5.SetColumnSpan(actions, 5);
             tableLayoutPanel5.SizeChanged += (s, e) =>
             {
-                Size maximum = new Size(Math.Max(100, tableLayoutPanel5.ClientSize.Width - 8), 0);
+                Control textHost = jobSummary.Parent ?? tableLayoutPanel5;
+                Size maximum = new Size(Math.Max(100, textHost.ClientSize.Width - 8), 0);
                 if (jobSummary.MaximumSize != maximum) jobSummary.MaximumSize = jobRemaining.MaximumSize = maximum;
             };
             TT.SetToolTip(jobRemaining, LayerText.Get("JobEstimateExplanation"));
@@ -65,9 +66,10 @@ namespace LaserGRBL
             if (Core.HasStagedJobParameters) remaining += Environment.NewLine + LayerText.Get("JobStaged");
             string error = Core.JobControlError;
             if (!string.IsNullOrEmpty(error)) remaining += Environment.NewLine + error;
-            tableLayoutPanel5.SuspendLayout();
+            Control progressLayout = jobSummary.Parent ?? tableLayoutPanel5;
+            progressLayout.SuspendLayout();
             try { SetJobText(jobSummary, summary); SetJobText(jobRemaining, remaining); }
-            finally { tableLayoutPanel5.ResumeLayout(true); }
+            finally { progressLayout.ResumeLayout(true); }
             UpdateProgressBar(100, progress.SentPercent, progress.Percent, string.Format("{0:0} %", progress.Percent));
             return true;
         }

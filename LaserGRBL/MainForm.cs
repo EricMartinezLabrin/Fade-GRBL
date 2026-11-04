@@ -35,9 +35,10 @@ namespace LaserGRBL
 
         public MainForm()
 		{
-			ColorScheme.CurrentScheme = Settings.GetObject("Color Schema", Scheme.CADDark);
+			ColorScheme.CurrentScheme = Settings.GetObject("Fade Design Theme", Scheme.FadeLight);
 
 			InitializeComponent();
+            Font = FadeTheme.BodyFont;
 			ExceptionManager.ParentMain = this;
 
 			mLineWidthMenu = new List<ToolStripMenuItem>()
@@ -121,6 +122,7 @@ namespace LaserGRBL
 			GitHub.NewVersion += GitHub_NewVersion;
 
 			AssignIcons();
+			BuildDesignShell();
 			RefreshColorSchema(); //include RefreshOverride();
 			RefreshFormTitle();
             //RefreshMenuHotKeys(); // I don't like the behaviour and the aspect, so I comment it out
@@ -167,6 +169,7 @@ namespace LaserGRBL
 			PreviewForm.OnColorChange();
 			IconsMgr.OnColorChannge();
 			RefreshOverride();
+			RefreshDesignTheme();
 		}
 
 		private void AssignIcons()
@@ -488,6 +491,7 @@ namespace LaserGRBL
 		{
 			SuspendLayout();
 			TTTStatus.Text = GrblCore.TranslateEnum(Core.MachineStatus);
+            if (brandHeader != null) brandHeader.SetStatus(TTTStatus.Text, Core.IsConnected, Core.MachineStatus == GrblCore.MacStatus.Alarm);
 
 			if (Core.InProgram)
 				TTTEstimated.Text = Utils.TimeSpanToString(Core.ProjectedTime, Utils.TimePrecision.Second, Utils.TimePrecision.Second, " ,", true);
@@ -563,6 +567,11 @@ namespace LaserGRBL
 					break;
 			}
 
+            if (ColorScheme.IsFade)
+            {
+                TTTStatus.BackColor = ColorScheme.SurfaceSubtle;
+                TTTStatus.ForeColor = Core.MachineStatus == GrblCore.MacStatus.Alarm ? ColorScheme.PreviewCommandKO : ColorScheme.FormForeColor;
+            }
 			PbBuffer.Maximum = Core.BufferSize;
 			PbBuffer.Value = Core.UsedBuffer;
 			PbBuffer.ToolTipText = $"Buffer: {Core.UsedBuffer}/{Core.BufferSize} Free:{Core.FreeBuffer}";
@@ -823,6 +832,7 @@ namespace LaserGRBL
         {
             Scheme schema = (Scheme)(sender as ToolStripMenuItem).Tag;
             Settings.SetObject("Color Schema", schema);
+            Settings.SetObject("Fade Design Theme", schema);
             ColorScheme.CurrentScheme = (Scheme)schema;
             RefreshColorSchema();
         }

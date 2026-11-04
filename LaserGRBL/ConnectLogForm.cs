@@ -227,6 +227,7 @@ namespace LaserGRBL
                 string text = val != "now" ? val : Core.InProgram ? "0 sec" : "";
                 UpdateProgressBar(Core.ProgramTarget, Core.ProgramSent, Core.ProgramExecuted, text);
             }
+            UpdateDesignActions();
 
 			/*
 			Idle: All systems are go, no motions queued, and it's ready for anything.

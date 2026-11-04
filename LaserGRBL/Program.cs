@@ -42,6 +42,7 @@ namespace LaserGRBL
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
             IconsMgr.Initialize();
+            FadeTheme.Install();
 			System.Globalization.CultureInfo ci = Settings.GetObject<System.Globalization.CultureInfo>("User Language", null);
 			if (ci != null) Thread.CurrentThread.CurrentUICulture = ci;
 			Tools.TaskScheduler.SetClockResolution(1); //use a fast clock

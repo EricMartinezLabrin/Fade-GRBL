@@ -1360,18 +1360,22 @@ namespace LaserGRBL
 
 		private void DrawJobPreview(Graphics g, GrblCommand.StatePositionBuilder spb, float zoom)
 		{
+			// Reference geometry must not move the cursor used for the output trajectory.
+			GrblCommand.StatePositionBuilder outputPosition = spb;
+			GrblCommand.StatePositionBuilder referencePosition = new GrblCommand.StatePositionBuilder();
 			bool firstline = true; //used to draw the first line in a different color
 			foreach (GrblCommand cmd in list)
 			{
 				try
 				{
 					cmd.BuildHelper();
+					spb = cmd.PreviewMuted ? referencePosition : outputPosition;
 					spb.AnalyzeCommand(cmd, false);
 
 
-					if (spb.TrueMovement())
+					if (spb.TrueMovement() && (!cmd.PreviewMuted || spb.LaserBurning))
 					{
-						Color baseColor = firstline ? ColorScheme.PreviewFirstMovement : spb.LaserBurning ? (cmd.PreviewColor ?? ColorScheme.PreviewLaserPower) : ColorScheme.PreviewOtherMovement;
+						Color baseColor = firstline && !cmd.PreviewMuted ? ColorScheme.PreviewFirstMovement : spb.LaserBurning ? (cmd.PreviewColor ?? ColorScheme.PreviewLaserPower) : ColorScheme.PreviewOtherMovement;
 						int alpha = spb.GetCurrentAlpha(mRange.SpindleRange);
 						if (cmd.PreviewMuted && spb.LaserBurning) alpha = (int)(alpha * 0.35);
 						Color linecolor = Color.FromArgb(alpha, baseColor);
@@ -1402,7 +1406,7 @@ namespace LaserGRBL
 
 						}
 
-						firstline = false;
+						if (!cmd.PreviewMuted) firstline = false;
 					}
 				}
 				catch (Exception ex) { throw ex; }

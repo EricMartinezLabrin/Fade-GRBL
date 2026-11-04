@@ -40,14 +40,31 @@ namespace LaserGRBL.Layering
     {
         public static void DrawContours(Graphics graphics, IEnumerable<VectorPath> paths, Func<PointF, PointF> toClient)
         {
-            using (Pen pen = new Pen(Color.DodgerBlue, 2.5f))
+            using (Pen halo = new Pen(ColorScheme.DarkScheme ? Color.White : ColorScheme.BrandGraphite, 4.5f))
+            using (Pen pen = new Pen(ColorScheme.IsFade ? ColorScheme.BrandAmber : Color.DodgerBlue, 2.5f))
                 foreach (VectorPath path in paths)
                 {
                     PointF[] points = path.Points.Select(p => toClient(new PointF((float)p.X, (float)p.Y))).ToArray();
                     if (points.Length < 2) continue;
+                    if (ColorScheme.IsFade) graphics.DrawLines(halo, points);
                     graphics.DrawLines(pen, points);
-                    if (path.Closed) graphics.DrawLine(pen, points[points.Length - 1], points[0]);
+                    if (path.Closed)
+                    {
+                        if (ColorScheme.IsFade) graphics.DrawLine(halo, points[points.Length - 1], points[0]);
+                        graphics.DrawLine(pen, points[points.Length - 1], points[0]);
+                    }
                 }
+        }
+
+        public static void DrawSelectionBounds(Graphics graphics, RectangleF bounds)
+        {
+            using (Pen halo = new Pen(ColorScheme.DarkScheme ? Color.White : ColorScheme.BrandGraphite, 3.5f))
+            using (Pen pen = new Pen(ColorScheme.IsFade ? ColorScheme.BrandAmber : Color.DodgerBlue, 1.5f))
+            {
+                if (ColorScheme.IsFade) graphics.DrawRectangle(halo, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                graphics.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            }
         }
 
         public static VectorSelection FindContour(LaserDocument document, PointF clientPoint, Func<PointF, PointF> toClient, double tolerance)

@@ -210,3 +210,18 @@ La implementación debe respetar **WinForms y .NET Framework 4.0**, así como la
 - [ ] Compilación Release y pruebas pertinentes al cambiar controles o comportamiento; capturas para revisar cambios visuales. Una compilación correcta no sustituye la revisión visual ni una prueba física de corte.
 
 **Regla de mantenimiento:** toda pantalla nueva debe reutilizar estos roles, medidas, componentes y criterios antes de introducir un patrón visual adicional.
+
+## 8. Implementación compartida y revisión
+
+Los temas «Fade · Claro» y «Fade · Oscuro» se seleccionan en **Colores**; el claro es el valor inicial del nuevo sistema. La preferencia se guarda en `Fade Design Theme`. Los esquemas anteriores siguen disponibles.
+
+`FadeColorScheme` define la paleta y `FadeTheme` aplica componentes, menús, tablas, foco y estados a la ventana principal y a los formularios de la aplicación. Los diálogos nativos del sistema conservan su presentación de Windows. El encabezado usa el logo incorporado como recurso, sin depender de la carpeta personal del usuario.
+
+Para revisar la ventana y los diálogos con el runtime real de la aplicación:
+
+```powershell
+msbuild LaserGRBL.sln /p:Configuration=Release
+powershell.exe -NoProfile -File scripts\Render-FadeDesign.ps1
+```
+
+El harness utiliza GDI, un documento de muestra y una ventana que omite el arranque normal: no conecta dispositivos ni inicia trabajos. Genera capturas claras y oscuras en `LaserGRBL.Tests/TestResults/design/`, en 1024 × 768, 1280 × 800 y 1920 × 1080, junto con los diálogos de color, pasadas, parámetros y reanudación. Requiere Windows PowerShell con .NET Framework; el renderer GDI existente utiliza `Thread.Abort`, no disponible en el runtime moderno del proyecto de pruebas. Las capturas complementan las pruebas y no sustituyen revisar DPI alto, interacción en una sesión normal o un corte físico.

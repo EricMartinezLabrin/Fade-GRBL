@@ -315,6 +315,8 @@ namespace LaserGRBL.Obj3D
             const int zPos = 0;
             NewDisplayList(true, BOUNDING_RECT_LINE_WIDTH, BOUNDING_RECT_STIPPLE);
             GrblCommand.StatePositionBuilder spb = new GrblCommand.StatePositionBuilder();
+            GrblCommand.StatePositionBuilder outputPosition = spb;
+            GrblCommand.StatePositionBuilder referencePosition = new GrblCommand.StatePositionBuilder();
             Core.PreviewFile.InUse = true;
             
             mBoundingBoxDisplayList = mCurrentDisplayList;
@@ -343,9 +345,10 @@ namespace LaserGRBL.Obj3D
                 try
                 {
                     cmd.BuildHelper();
+                    spb = cmd.PreviewMuted ? referencePosition : outputPosition;
                     spb.AnalyzeCommand(cmd, false);
 
-                    if (spb.TrueMovement())
+                    if (spb.TrueMovement() && (!cmd.PreviewMuted || (!mJustLaserOffMovements && spb.LaserBurning)))
                     {
                         if (spb.G0G1 && cmd.IsLinearMovement)
                         {

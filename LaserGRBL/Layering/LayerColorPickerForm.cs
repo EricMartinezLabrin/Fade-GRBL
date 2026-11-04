@@ -30,6 +30,7 @@ namespace LaserGRBL.Layering
             ForeColor = ColorScheme.FormForeColor;
 
             preview.SetBounds(20, 20, 330, 55);
+            preview.Name = "LayerColorPreview";
             preview.BorderStyle = BorderStyle.FixedSingle;
             rgb.SetBounds(20, 82, 330, 22);
             rgb.TextAlign = ContentAlignment.MiddleCenter;

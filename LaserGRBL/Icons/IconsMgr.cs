@@ -153,7 +153,13 @@ namespace LaserGRBL.Icons
             if (colorize && mIconsLoader is SvgIcons.SvgIcons)
             {
                 Color iconColor;
-                if (mIconColors.TryGetValue(strResourceName, out Color color))
+                if (ColorScheme.IsFade)
+                {
+                    iconColor = strResourceName.Contains("stop") || strResourceName.Contains("close") || strResourceName == "mdi-power-plug-off" ? ColorScheme.PreviewCommandKO :
+                        strResourceName.Contains("reset") || strResourceName == "mdi-lightning-bolt" ? ColorScheme.FocusRing : ColorScheme.FormForeColor;
+                    result = ImageTransform.SetColor(result, iconColor);
+                }
+                else if (mIconColors.TryGetValue(strResourceName, out Color color))
                 {
                     result = ImageTransform.SetColor(result, color);
                     iconColor = color;

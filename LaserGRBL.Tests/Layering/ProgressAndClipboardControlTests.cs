@@ -31,6 +31,51 @@ namespace LaserGRBL.Tests.Layering
             } } } };
         }
 
+        private static LaserLayer PreviewLine(double x, double y, int order)
+        {
+            return new LaserLayer { Order = order, Color = Color.Blue, VectorItems = {
+                new VectorItem { Paths = { new VectorPath { Points = { new LaserPoint(x, y), new LaserPoint(x + 20, y) } } } }
+            } };
+        }
+
+        private static bool HasInk(Bitmap bitmap, int x, int y, int width, int height)
+        {
+            for (int px = x; px < x + width; px++)
+                for (int py = y; py < y + height; py++)
+                    if (bitmap.GetPixel(px, py).ToArgb() != Color.White.ToArgb()) return true;
+            return false;
+        }
+
+        [Theory]
+        [InlineData(JobPassOrder.ByLayer)]
+        [InlineData(JobPassOrder.ByObject)]
+        public void Preview_OutputToggled_OnlyConnectsEnabledLayersAndKeepsReferenceGeometry(JobPassOrder passOrder)
+        {
+            Sta(() =>
+            {
+                var document = new LaserDocument { PassOrder = passOrder, Layers = {
+                    PreviewLine(10, 20, 0), PreviewLine(60, 60, 1), PreviewLine(110, 20, 2) } };
+                var middle = document.Layers[1];
+                foreach (bool output in new[] { false, true, false })
+                {
+                    middle.OutputEnabled = output;
+                    var compilation = LayeredJobCompiler.Compile(document, 1000, "M4", "M5");
+                    Assert.Equal(output, compilation.OutputCommands.Any(c => c.SourceLayerId == middle.Id));
+                    var file = new GrblFile(); Call(file, "LoadCommands", compilation.PreviewCommands, "Test", false);
+                    using (var bitmap = new Bitmap(150, 90))
+                    using (var graphics = Graphics.FromImage(bitmap))
+                    {
+                        graphics.Clear(Color.White);
+                        Call(file, "DrawJobPreview", graphics, new GrblCommand.StatePositionBuilder(), 1f);
+                        Assert.True(HasInk(bitmap, 65, 59, 10, 3)); // Disabled geometry remains visible.
+                        Assert.Equal(output, HasInk(bitmap, 42, 37, 7, 7)); // Travel into middle layer.
+                        Assert.Equal(output, HasInk(bitmap, 92, 37, 7, 7)); // Travel out of middle layer.
+                        Assert.Equal(!output, HasInk(bitmap, 65, 19, 10, 3)); // Direct travel between enabled layers.
+                    }
+                }
+            });
+        }
+
         [Fact]
         public void JobProgress_PausedRepeatedUpdates_AssignsFinalTextOnceAndKeepsLayoutStable()
         {
@@ -90,7 +135,36 @@ namespace LaserGRBL.Tests.Layering
                     var objects = new[] { new VectorSelection(layer, layer.VectorItems[0], layer.VectorItems[0].Paths[0]) };
                     controller.CopyObjects(objects); Assert.True(controller.Clipboard.ContainsObjects);
                     Assert.Empty(controller.DuplicateObjects(objects)); Assert.Single(document.Layers);
+                    controller.RemoveLayers(new[] { layer }); controller.Remove(layer);
+                    Assert.Single(document.Layers);
                     Assert.False(document.IsDirty);
+                }
+            });
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Controller_RemoveLayers_RemovesWholeSelectionAndNormalizesRemainingOrder(bool removeAll)
+        {
+            Sta(() =>
+            {
+                using (var sync = new Control())
+                {
+                    var core = new GrblCore(sync, null, null); var document = Document(); var controller = core.LayerController;
+                    var first = document.Layers[0]; var remaining = first.Clone(true); var last = first.Clone(true);
+                    document.Layers.Add(remaining); document.Layers.Add(last); document.NormalizeOrder();
+                    typeof(LayerDocumentController).GetProperty("Document").SetValue(controller, document);
+                    int changes = 0; controller.DocumentChanged += () => changes++;
+                    try
+                    {
+                        controller.RemoveLayers(removeAll ? document.Layers.ToArray() : new[] { first, last, first, new LaserLayer() });
+                        Assert.Equal(1, changes); Assert.True(document.IsDirty); Assert.False(controller.IsCompilationCurrent);
+                        if (removeAll) Assert.Empty(document.Layers);
+                        else { Assert.Same(remaining, Assert.Single(document.Layers)); Assert.Equal(0, remaining.Order); Assert.True(remaining.HasContent); }
+                        controller.Remove(first); Assert.Equal(1, changes);
+                    }
+                    finally { controller.ExitLayeredMode(); }
                 }
             });
         }
@@ -135,11 +209,14 @@ namespace LaserGRBL.Tests.Layering
                     var method = grid.GetType().GetMethod("ProcessCmdKey", Private);
                     object[] args = { new Message(), Keys.Control | Keys.C };
                     Assert.True((bool)method.Invoke(grid, args)); Assert.True(core.LayerController.Clipboard.HasContent);
+                    int deletes = 0; grid.GetType().GetField("DeleteCommand").SetValue(grid, new Action(() => deletes++));
+                    args[1] = Keys.Delete; Assert.True((bool)method.Invoke(grid, args)); Assert.Equal(1, deletes);
                     grid.CurrentCell = grid.Rows[0].Cells["LayerName"];
                     Assert.True(grid.BeginEdit(false));
                     var editor = (TextBox)grid.EditingControl; editor.Text = "Editing name";
                     int commands = 0; grid.GetType().GetField("ClipboardCommand").SetValue(grid, new Action<Keys>(key => commands++));
                     args[1] = Keys.Control | Keys.D; method.Invoke(grid, args);
+                    args[1] = Keys.Delete; method.Invoke(grid, args); Assert.Equal(1, deletes);
                     Assert.Equal(0, commands); Assert.True(grid.IsCurrentCellInEditMode); Assert.Equal("Editing name", editor.Text);
                     grid.CancelEdit();
                 }

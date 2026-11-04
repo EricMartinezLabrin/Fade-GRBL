@@ -250,7 +250,7 @@ namespace LaserGRBL.UserControls
 			PointF first = MachineToDraw(new PointF(bounds.Left, bounds.Top));
 			PointF second = MachineToDraw(new PointF(bounds.Right, bounds.Bottom));
 			RectangleF screen = RectangleF.FromLTRB(Math.Min(first.X, second.X), Math.Min(first.Y, second.Y), Math.Max(first.X, second.X), Math.Max(first.Y, second.Y));
-			using (Pen pen = new Pen(Color.DodgerBlue, 1.5f)) { pen.DashStyle = DashStyle.Dash; graphics.DrawRectangle(pen, screen.X, screen.Y, screen.Width, screen.Height); }
+			Layering.LayerGeometry.DrawSelectionBounds(graphics, screen);
 		}
 
 		private void AssignBMP(System.Drawing.Bitmap bmp)

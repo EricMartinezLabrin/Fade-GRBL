@@ -124,6 +124,11 @@ namespace LaserGRBL.UserControls
         protected override void OnPaint(System.Windows.Forms.PaintEventArgs e)
         {
             base.OnPaint(e);
+            if (ColorScheme.IsFade && !IconsMgr.LegacyIcons)
+            {
+                DrawFadeIcon(e.Graphics);
+                return;
+            }
 
             Image touse = UseAltImage ? AltImage : Image;
 
@@ -296,6 +301,29 @@ namespace LaserGRBL.UserControls
         public virtual bool IsMouseInside()
         {
             return RectangleToScreen(ClientRectangle).Contains(System.Windows.Forms.Cursor.Position);
+        }
+
+        private void DrawFadeIcon(Graphics graphics)
+        {
+            graphics.Clear(Enabled && IsMouseInside() ? ColorScheme.SelectionBackground : ColorScheme.FormBackColor);
+            Image icon = UseAltImage ? AltImage : Image;
+            int caption = HasCaption ? Math.Max(16, Font.Height) : 0;
+            int side = Math.Max(1, Math.Min((int)(28 * graphics.DpiX / 96f), Math.Min(Width - 8, Height - caption - 8)));
+            if (icon != null)
+            {
+                Rectangle target = new Rectangle((Width - side) / 2, Math.Max(2, (Height - caption - side) / 2), side, side);
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                using (var attributes = new ImageAttributes())
+                {
+                    if (DrawDisabled()) attributes.SetColorMatrix(new ColorMatrix { Matrix33 = 0.4f });
+                    graphics.DrawImage(icon, target, 0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, attributes);
+                }
+            }
+            if (HasCaption)
+                TextRenderer.DrawText(graphics, Caption, FadeTheme.CaptionFont, new Rectangle(0, Height - caption, Width, caption),
+                    Enabled ? ColorScheme.FormForeColor : ColorScheme.DisabledButtons, TextFormatFlags.HorizontalCenter | TextFormatFlags.EndEllipsis);
+            if (Focused)
+                using (var focus = new Pen(ColorScheme.FocusRing, 2)) graphics.DrawRectangle(focus, 1, 1, Math.Max(0, Width - 3), Math.Max(0, Height - 3));
         }
 
         protected virtual bool DrawDisabled()
