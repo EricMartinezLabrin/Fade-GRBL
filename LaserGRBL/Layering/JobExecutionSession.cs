@@ -13,6 +13,7 @@ namespace LaserGRBL.Layering
         public double Percent { get; internal set; }
         public double SentPercent { get; internal set; }
         public string LayerName { get; internal set; }
+        public int ObjectIndex { get; internal set; } = -1;
         public int Pass { get; internal set; }
         public int Passes { get; internal set; }
         public int CompletedPasses { get; internal set; }
@@ -37,6 +38,7 @@ namespace LaserGRBL.Layering
         public bool Active { get { return State != JobExecutionState.Completed && State != JobExecutionState.Interrupted; } }
         public int Cycle { get; private set; }
         public int Cycles { get; private set; }
+        public int ObjectRepetitions { get; private set; }
         public int ConfirmedIndex { get; private set; }
         public int CurrentIndex { get; private set; }
         public int SentIndex { get; private set; }
@@ -44,9 +46,10 @@ namespace LaserGRBL.Layering
         public bool CanNumberLines { get; private set; }
         public double EstimatedSeconds { get { return Commands.Count == 0 ? 0 : Commands[Commands.Count - 1].TimeOffset.TotalSeconds; } }
 
-        public JobExecutionSession(IEnumerable<GrblCommand> commands, LaserDocument document, int cycles)
+        public JobExecutionSession(IEnumerable<GrblCommand> commands, LaserDocument document, int cycles, int objectRepetitions = 1)
         {
-            Cycles = Math.Max(1, cycles); Cycle = 1;
+            ObjectRepetitions = document != null && document.PassOrder == JobPassOrder.ByObject ? Math.Max(1, objectRepetitions) : 1;
+            Cycles = document != null && document.PassOrder == JobPassOrder.ByObject ? 1 : Math.Max(1, cycles); Cycle = 1;
             ReplaceCommands(commands, document, 0);
             SetState(JobExecutionState.Running);
         }
@@ -70,7 +73,8 @@ namespace LaserGRBL.Layering
             SetState(JobExecutionState.Running);
         }
 
-        public void SetCyclesRemaining(int remaining) { Cycles = Cycle - 1 + Math.Max(1, remaining); }
+        public void SetCyclesRemaining(int remaining)
+        { Cycles = Document != null && Document.PassOrder == JobPassOrder.ByObject ? 1 : Cycle - 1 + Math.Max(1, remaining); }
 
         public void SetState(JobExecutionState state)
         {
@@ -124,7 +128,8 @@ namespace LaserGRBL.Layering
                 GrblCommand current = CurrentCommand;
                 if (current == null) return 0;
                 int i = Math.Min(CurrentIndex, Commands.Count - 1);
-                while (i > 0 && Commands[i - 1].SourceLayerId == current.SourceLayerId && Commands[i - 1].SourcePass == current.SourcePass) i--;
+                while (i > 0 && Commands[i - 1].SourceLayerId == current.SourceLayerId &&
+                    Commands[i - 1].SourceObjectIndex == current.SourceObjectIndex && Commands[i - 1].SourcePass == current.SourcePass) i--;
                 return i;
             }
         }
@@ -185,8 +190,10 @@ namespace LaserGRBL.Layering
             return new JobProgressSnapshot {
                 State = State, Percent = completed ? 100 : Math.Min(99, 100 * (completedWeight + DisplayDoneWeight()) / denominator),
                 SentPercent = completed ? 100 : Math.Min(100, 100 * (completedWeight + DoneWeight(SentIndex)) / denominator),
-                LayerName = layer == null ? null : layer.Name, Pass = command == null ? 0 : command.SourcePass,
-                Passes = layer == null ? 0 : layer.Passes, CompletedPasses = layer == null ? 0 : completed ? layer.Passes : Math.Max(0, command.SourcePass - 1),
+                LayerName = layer == null ? null : layer.Name, ObjectIndex = command == null ? -1 : command.SourceObjectIndex,
+                Pass = command == null ? 0 : command.SourcePass,
+                Passes = layer == null ? 0 : layer.Passes * ObjectRepetitions,
+                CompletedPasses = layer == null ? 0 : completed ? layer.Passes * ObjectRepetitions : Math.Max(0, command.SourcePass - 1),
                 Cycle = Cycle, Cycles = Cycles,
                 Remaining = completed ? TimeSpan.Zero : State == JobExecutionState.Paused || State == JobExecutionState.Pausing ? frozenRemaining : CalculateRemaining()
             };

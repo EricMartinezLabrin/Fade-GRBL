@@ -115,6 +115,20 @@ namespace LaserGRBL.Layering
 
         public void Save(string filename) { LayerProjectSerializer.Save(filename, Document); NotifyDocumentChanged(); }
 
+        public bool SetPassOrder(JobPassOrder order, int objectRepetitions = 1)
+        {
+            if (Document == null || core.JobEditingLocked) return false;
+            LaserDocument snapshot = Document.Clone(); snapshot.PassOrder = order;
+            LayeredCompilation compilation = LayeredJobCompiler.Compile(snapshot, Math.Max(1, (int)GrblCore.Configuration.MaxPWM),
+                Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOn", "M4"), "M5", objectRepetitions);
+            if (compilation.HasErrors || !core.ApplyLayeredCompilation(compilation)) return false;
+            Interlocked.Increment(ref requestedRevision);
+            Document.IsDirty |= Document.PassOrder != order; Document.PassOrder = order;
+            IsCompilationCurrent = true; HasCompilationErrors = false;
+            NotifyDocumentChanged(); RaiseCompilationState();
+            return true;
+        }
+
         public bool ReprocessRaster(LaserLayer layer)
         {
             if (layer == null || layer.ContentKind != LayerContentKind.Raster || layer.RasterItem == null || layer.RasterItem.ImageData == null) return false;

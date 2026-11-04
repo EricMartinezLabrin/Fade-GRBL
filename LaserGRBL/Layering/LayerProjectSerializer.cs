@@ -52,16 +52,17 @@ namespace LaserGRBL.Layering
         {
             [XmlAttribute("version")]
             public int Version { get; set; } = 2;
+            public JobPassOrder PassOrder { get; set; } = JobPassOrder.ByLayer;
             public List<LayerDto> Layers { get; set; } = new List<LayerDto>();
 
             public static LaserProjectDto FromModel(LaserDocument document)
             {
-                return new LaserProjectDto { Version = 2, Layers = document.Layers.Select(LayerDto.FromModel).ToList() };
+                return new LaserProjectDto { Version = 2, PassOrder = document.PassOrder, Layers = document.Layers.Select(LayerDto.FromModel).ToList() };
             }
 
             public LaserDocument ToModel()
             {
-                return new LaserDocument { Version = Version, Layers = (Layers ?? new List<LayerDto>()).Select(layer => layer.ToModel()).ToList() };
+                return new LaserDocument { Version = Version, PassOrder = PassOrder, Layers = (Layers ?? new List<LayerDto>()).Select(layer => layer.ToModel()).ToList() };
             }
         }
 

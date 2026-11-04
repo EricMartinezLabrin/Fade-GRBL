@@ -21,10 +21,11 @@ namespace LaserGRBL.Layering
         private static readonly Regex FeedRegex = new Regex(@"(?<![A-Z])F-?\d+(?:\.\d+)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex PowerRegex = new Regex(@"(?<![A-Z])S(-?\d+(?:\.\d+)?)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        public static LayeredCompilation Compile(LaserDocument document, int maxPwm, string laserOn, string laserOff)
+        public static LayeredCompilation Compile(LaserDocument document, int maxPwm, string laserOn, string laserOff, int objectRepetitions = 1)
         {
             LayeredCompilation result = new LayeredCompilation();
             if (document == null) return result;
+            if (document.PassOrder == JobPassOrder.ByObject) return CompileObjects(document, maxPwm, laserOn, laserOff, Math.Max(1, objectRepetitions));
             foreach (LaserLayer layer in document.Layers.OrderBy(l => l.Order))
             {
                 layer.HasError = false;
@@ -64,10 +65,67 @@ namespace LaserGRBL.Layering
             return result;
         }
 
-        private static IEnumerable<GrblCommand> ToCommands(IEnumerable<string> lines, LaserLayer layer, bool muted)
+        private sealed class CutObject
+        {
+            public LaserLayer Layer;
+            public int Index = -1;
+            public VectorPath Path;
+            public List<string> Commands;
+        }
+
+        private static LayeredCompilation CompileObjects(LaserDocument document, int maxPwm, string laserOn, string laserOff, int repetitions)
+        {
+            var result = new LayeredCompilation();
+            var objects = new List<CutObject>();
+            foreach (LaserLayer layer in document.Layers.OrderBy(l => l.Order))
+            {
+                layer.HasError = false; layer.StatusMessage = layer.Validate();
+                if (layer.StatusMessage != null)
+                {
+                    layer.HasError = layer.OutputEnabled; result.HasErrors |= layer.HasError; continue;
+                }
+                var layerObjects = new List<CutObject>();
+                try
+                {
+                    if (layer.ContentKind == LayerContentKind.Vector && layer.Mode == LayerMode.Line)
+                    {
+                        int index = 0;
+                        foreach (VectorPath path in layer.VectorItems.SelectMany(item => item.Paths))
+                        {
+                            if (path.Points.Count > 1)
+                            {
+                                VectorPath transformed = LayerGeometry.Transform(path, layer);
+                                layerObjects.Add(new CutObject { Layer = layer, Index = index, Path = transformed,
+                                    Commands = CompileLayer(layer, maxPwm, laserOn, laserOff, transformed) });
+                            }
+                            index++;
+                        }
+                    }
+                    else
+                    {
+                        // Raster and fill retain their whole-layer geometry (including holes).
+                        layerObjects.Add(new CutObject { Layer = layer, Commands = CompileLayer(layer, maxPwm, laserOn, laserOff) });
+                    }
+                    if (!layerObjects.Any(item => item.Commands.Count > 0) && layer.OutputEnabled)
+                        throw new InvalidOperationException("Layer has no valid geometry for selected mode.");
+                    objects.AddRange(layerObjects);
+                }
+                catch (Exception ex)
+                {
+                    layer.StatusMessage = ex.Message; layer.HasError = layer.OutputEnabled; result.HasErrors |= layer.HasError;
+                }
+            }
+            foreach (CutObject item in ObjectCutOrder.InsideFirst(objects.Where(item => item.Layer.OutputEnabled).ToList(), item => item.Path))
+                result.OutputCommands.AddRange(ToCommands(Repeat(item.Commands, repetitions), item.Layer, false, item.Index, checked(item.Layer.Passes * repetitions)));
+            foreach (CutObject item in ObjectCutOrder.InsideFirst(objects.Where(item => item.Layer.Visible).ToList(), item => item.Path))
+                result.PreviewCommands.AddRange(ToCommands(Repeat(item.Commands, repetitions), item.Layer, !item.Layer.OutputEnabled, item.Index, checked(item.Layer.Passes * repetitions)));
+            return result;
+        }
+
+        private static IEnumerable<GrblCommand> ToCommands(IEnumerable<string> lines, LaserLayer layer, bool muted, int objectIndex = -1, int totalPasses = 0)
         {
             List<string> materialized = lines.ToList();
-            int perPass = materialized.Count / layer.Passes;
+            int perPass = materialized.Count / (totalPasses > 0 ? totalPasses : layer.Passes);
             int index = 0, movement = 0;
             decimal motion = 0, power = 0, x = 0, y = 0, z = 0;
             bool laser = false, absolute = true;
@@ -78,11 +136,13 @@ namespace LaserGRBL.Layering
                     movement = 0;
                     // G4 synchronizes the GRBL planner before acknowledging this marker.
                     yield return new GrblCommand("G4 P0") { SourceLayerId = layer.Id,
+                        SourceObjectIndex = objectIndex,
                         SourcePass = index / perPass + 1, SourceCommandIndex = -1,
                         IsJobCheckpoint = true, PreviewColor = layer.Color, PreviewMuted = muted };
                 }
                 GrblCommand command = new GrblCommand(line);
                 command.SourceLayerId = layer.Id;
+                command.SourceObjectIndex = objectIndex;
                 command.SourcePass = perPass == 0 ? 1 : index / perPass + 1;
                 command.SourceCommandIndex = perPass == 0 ? index : index % perPass;
                 command.BuildHelper();
@@ -108,13 +168,13 @@ namespace LaserGRBL.Layering
             }
         }
 
-        private static List<string> CompileLayer(LaserLayer layer, int maxPwm, string laserOn, string laserOff)
+        private static List<string> CompileLayer(LaserLayer layer, int maxPwm, string laserOn, string laserOff, VectorPath objectPath = null)
         {
             if (!layer.HasContent) return new List<string>();
             if (layer.Mode == LayerMode.Image) return CompileRaster(layer, maxPwm);
 
-            List<VectorPath> source = layer.VectorItems.SelectMany(i => i.Paths).Where(p => p.Points.Count > 1)
-                .Select(path => LayerGeometry.Transform(path, layer)).ToList();
+            List<VectorPath> source = objectPath == null ? layer.VectorItems.SelectMany(i => i.Paths).Where(p => p.Points.Count > 1)
+                .Select(path => LayerGeometry.Transform(path, layer)).ToList() : new List<VectorPath> { objectPath };
             List<VectorPath> paths;
             switch (layer.Mode)
             {

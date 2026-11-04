@@ -56,7 +56,9 @@ namespace LaserGRBL
             string state = LayerText.Get("JobState" + progress.State);
             string summary = string.Format(LayerText.Get("JobProgress"), progress.Percent) + " \u00b7 " + state;
             if (progress.LayerName != null)
-                summary += Environment.NewLine + string.Format(LayerText.Get("JobLayerProgress"), progress.LayerName, progress.Pass, progress.Passes, progress.CompletedPasses);
+                summary += Environment.NewLine + (progress.ObjectIndex >= 0 ?
+                    string.Format(LayerText.Get("JobObjectProgress"), progress.LayerName, progress.ObjectIndex + 1, progress.Pass, progress.Passes, progress.CompletedPasses) :
+                    string.Format(LayerText.Get("JobLayerProgress"), progress.LayerName, progress.Pass, progress.Passes, progress.CompletedPasses));
             if (progress.Cycles > 1) summary += Environment.NewLine + string.Format(LayerText.Get("JobCycles"), progress.Cycle, progress.Cycles);
             string remaining = progress.State == JobExecutionState.Interrupted ? LayerText.Get("JobStateInterrupted") :
                 string.Format(LayerText.Get("JobRemaining"), progress.Remaining.HasValue ? FormatJobTime(progress.Remaining.Value) : LayerText.Get("JobCalculating"));

@@ -34,9 +34,9 @@ namespace LaserGRBL.Tests.Layering
             return document;
         }
 
-        private static GrblFile Compile(LaserDocument document)
+        private static GrblFile Compile(LaserDocument document, int repetitions = 1)
         {
-            LayeredCompilation result = LayeredJobCompiler.Compile(document, 1000, "M4", "M5");
+            LayeredCompilation result = LayeredJobCompiler.Compile(document, 1000, "M4", "M5", repetitions);
             Assert.False(result.HasErrors);
             GrblFile file = new GrblFile();
             typeof(GrblFile).GetMethod("LoadCommands", Private).Invoke(file, new object[] { result.OutputCommands, "Test", false });
@@ -190,6 +190,53 @@ namespace LaserGRBL.Tests.Layering
         }
 
         [Fact]
+        public void Protocol_ByObject_RebuildAnchorsLaterObjectInsteadOfFirstObjectWithSamePass()
+        {
+            using (var harness = new Harness(true, 5))
+            {
+                var session = harness.Core.JobSession;
+                int target = session.Commands.FindIndex(c => c.IsJobCheckpoint && c.SourceObjectIndex == 1 && c.SourcePass == 7);
+                Assert.True(target > 0); session.Checkpoint(session.Commands[target]); harness.Pause();
+                Call(harness.Core, "StartJobRebuild", 0);
+                Assert.Equal(JobExecutionState.Resuming, session.State);
+                Call(harness.Core, "OnStartupMessage");
+                Call(harness.Core, "OnJobRealtimeStatus", "Idle|MPos:2,0,0|WCO:0,0,0");
+                var marker = harness.Queue.Last(); harness.Queue.Clear(); marker.SetResult("ok", false);
+                Call(harness.Core, "OnJobCommandResponse", marker);
+                Call(harness.Core, "OnJobRealtimeStatus", "Idle|MPos:2,0,0|WCO:0,0,0");
+                Assert.Equal(JobExecutionState.Running, session.State);
+                Assert.Equal(1, session.CurrentCommand.SourceObjectIndex);
+                Assert.Equal(7, session.CurrentCommand.SourcePass);
+                Assert.Equal(15, session.Snapshot().Passes);
+                Assert.Equal(JobPassOrder.ByObject, session.Document.PassOrder);
+                Assert.Equal(JobPassOrder.ByObject, harness.Core.LayerController.Document.PassOrder);
+            }
+        }
+
+        [Fact]
+        public void Protocol_ByObject_GlobalCounter_QueuesFinalFooterInsteadOfAnotherWholeJobCycle()
+        {
+            using (var harness = new Harness(true, 10))
+            {
+                Assert.Equal(10, harness.Core.LoopCount);
+                Assert.Equal(1, harness.Core.GetJobProgress().Cycles);
+                Assert.Equal(30, harness.Core.GetJobProgress().Passes);
+                Assert.Equal(1m, typeof(GrblCore).GetProperty("JobCyclesRemaining", Private).GetValue(harness.Core));
+                Call(harness.Core, "RequestJobEnd");
+                Assert.True(Field<bool>(harness.Core, "mJobFooterQueued"));
+                Assert.Contains(harness.Queue, c => c.Command == "M5");
+                Assert.Contains(harness.Queue, c => c.Command == "G4 P0");
+            }
+            using (var harness = new Harness(false, 10))
+            {
+                Assert.Equal(10, harness.Core.GetJobProgress().Cycles);
+                Assert.Equal(10m, typeof(GrblCore).GetProperty("JobCyclesRemaining", Private).GetValue(harness.Core));
+                Call(harness.Core, "RequestJobEnd");
+                Assert.False(Field<bool>(harness.Core, "mJobFooterQueued"));
+            }
+        }
+
+        [Fact]
         public void Protocol_ChangedPositionAfterReset_StopsAndPreservesOriginalDocument()
         {
             using (var harness = new Harness())
@@ -226,7 +273,7 @@ namespace LaserGRBL.Tests.Layering
             private readonly object oldVersion = Settings.GetObject<object>("Last GrblVersion known", null);
             private readonly Control sync = new Control();
 
-            public Harness()
+            public Harness(bool byObject = false, int repetitions = 1)
             {
                 var version = new GrblCore.GrblVersionInfo(1, 1, 'h');
                 Settings.SetObject("Last GrblVersion known", version);
@@ -234,8 +281,17 @@ namespace LaserGRBL.Tests.Layering
                 Core = new GrblCore(sync, null, null);
                 Set(Core, "com", Wire); Set(Core, "mMachineStatus", GrblCore.MacStatus.Run);
                 LaserDocument doc = Document(3);
+                if (byObject)
+                {
+                    doc.PassOrder = JobPassOrder.ByObject;
+                    VectorPath second = doc.Layers[0].VectorItems[0].Paths[0].Clone();
+                    foreach (LaserPoint point in second.Points) point.X += 30;
+                    doc.Layers[0].VectorItems[0].Paths.Add(second);
+                }
                 typeof(LayerDocumentController).GetProperty("Document").SetValue(Core.LayerController, doc);
-                Set(Core, "file", Compile(doc));
+                Set(Core, "mLoopCount", (decimal)repetitions);
+                Set(Core, "mPreparedObjectRepetitions", byObject ? repetitions : 1);
+                Set(Core, "file", Compile(doc, byObject ? repetitions : 1));
                 Call(Core, "BeginJobSession", true, false);
                 Queue.Clear();
                 foreach (GrblCommand command in Core.JobSession.Commands) Core.JobSession.Sent(command);

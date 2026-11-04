@@ -9,6 +9,7 @@ namespace LaserGRBL.Layering
 {
     public enum LayerMode { Line, Fill, OffsetFill, Image }
     public enum LayerContentKind { Vector, Raster }
+    public enum JobPassOrder { ByLayer, ByObject }
 
     [Serializable]
     public class LaserPoint
@@ -177,6 +178,7 @@ namespace LaserGRBL.Layering
     {
         [XmlAttribute("version")]
         public int Version { get; set; } = 2;
+        public JobPassOrder PassOrder { get; set; } = JobPassOrder.ByLayer;
         public List<LaserLayer> Layers { get; set; } = new List<LaserLayer>();
         [NonSerialized, XmlIgnore] public bool IsDirty;
 
@@ -195,6 +197,7 @@ namespace LaserGRBL.Layering
             return new LaserDocument
             {
                 Version = Version,
+                PassOrder = PassOrder,
                 Layers = Layers.Select(layer => layer.Clone(true, true)).ToList(),
                 IsDirty = IsDirty
             };

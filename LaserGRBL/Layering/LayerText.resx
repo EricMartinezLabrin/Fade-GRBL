@@ -80,4 +80,12 @@
 <data name="Paste" xml:space="preserve"><value>Paste</value></data>
 <data name="Duplicate" xml:space="preserve"><value>Duplicate</value></data>
 <data name="CopySuffix" xml:space="preserve"><value> copy</value></data>
+  <data name="PassOrderTitle" xml:space="preserve"><value>Pass order</value></data>
+  <data name="PassOrderQuestion" xml:space="preserve"><value>How do you want to run the passes?</value></data>
+  <data name="PassOrderObjects" xml:space="preserve"><value>By object — inside cuts first</value></data>
+  <data name="PassOrderObjectsExplanation" xml:space="preserve"><value>Finish every round of each object before the next: layer passes × repetition counter. Inner contours first, even across layers. Fill and image layers remain whole.</value></data>
+  <data name="PassOrderLayers" xml:space="preserve"><value>By layer — current behavior</value></data>
+  <data name="PassOrderLayersExplanation" xml:space="preserve"><value>Run one pass of every object in the layer, then repeat the layer until all its passes are complete.</value></data>
+  <data name="PassOrderStart" xml:space="preserve"><value>Continue</value></data>
+  <data name="JobObjectProgress" xml:space="preserve"><value>Layer: {0} · Object {1} · Pass {2}/{3} · {4} completed</value></data>
 </root>

@@ -6,6 +6,34 @@ using System.Windows.Forms;
 
 namespace LaserGRBL.Layering
 {
+    internal sealed class JobPassOrderDialog : Form
+    {
+        private readonly RadioButton objects;
+        public JobPassOrder PassOrder { get { return objects.Checked ? JobPassOrder.ByObject : JobPassOrder.ByLayer; } }
+
+        public JobPassOrderDialog(JobPassOrder initial)
+        {
+            Text = LayerText.Get("PassOrderTitle"); StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog; MinimizeBox = MaximizeBox = false;
+            ClientSize = new Size(560, 300); AutoScaleMode = AutoScaleMode.Font;
+            AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(12), ColumnCount = 1, RowCount = 6 };
+            for (int i = 0; i < 5; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(530, 0), Text = LayerText.Get("PassOrderQuestion"), Margin = new Padding(3, 3, 3, 12) });
+            objects = new RadioButton { AutoSize = true, Text = LayerText.Get("PassOrderObjects"), Checked = initial == JobPassOrder.ByObject };
+            layout.Controls.Add(objects);
+            layout.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(510, 0), Margin = new Padding(22, 0, 3, 12), Text = LayerText.Get("PassOrderObjectsExplanation") });
+            layout.Controls.Add(new RadioButton { AutoSize = true, Text = LayerText.Get("PassOrderLayers"), Checked = initial != JobPassOrder.ByObject });
+            layout.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(510, 0), Margin = new Padding(22, 0, 3, 12), Text = LayerText.Get("PassOrderLayersExplanation") });
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft };
+            var start = new Button { Text = LayerText.Get("PassOrderStart"), AutoSize = true, DialogResult = DialogResult.OK };
+            var cancel = new Button { Text = LayerText.Get("Cancel"), AutoSize = true, DialogResult = DialogResult.Cancel };
+            buttons.Controls.Add(start); buttons.Controls.Add(cancel); layout.Controls.Add(buttons);
+            Controls.Add(layout); AcceptButton = start; CancelButton = cancel;
+        }
+    }
+
     internal sealed class JobResumeDialog : Form
     {
         private readonly RadioButton rewind = new RadioButton();
@@ -83,7 +111,8 @@ namespace LaserGRBL.Layering
                 LaserLayer layer = (LaserLayer)row.Tag;
                 if (row.ReadOnly) continue;
                 double power; int speed, passes;
-                int minimum = session.CurrentCommand != null && session.CurrentCommand.SourceLayerId == layer.Id ? Math.Max(1, session.CurrentCommand.SourcePass) : 1;
+                int minimum = session.CurrentCommand != null && session.CurrentCommand.SourceLayerId == layer.Id ?
+                    Math.Max(1, (session.CurrentCommand.SourcePass + session.ObjectRepetitions - 1) / session.ObjectRepetitions) : 1;
                 bool valid = double.TryParse(Convert.ToString(row.Cells["Power"].Value), NumberStyles.Float, CultureInfo.CurrentCulture, out power) &&
                     !double.IsNaN(power) && !double.IsInfinity(power) && power >= 0 && power <= 100;
                 valid &= int.TryParse(Convert.ToString(row.Cells["Speed"].Value), out speed) && speed >= 1 && speed <= 100000;

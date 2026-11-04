@@ -177,6 +177,7 @@
     </Compile>
     <Compile Include="Layering\LaserDocument.cs" />
     <Compile Include="Layering\CanvasClipboard.cs" />
+    <Compile Include="Layering\ObjectCutOrder.cs" />
     <Compile Include="Layering\LayerGeometry.cs" />
     <Compile Include="Layering\LayeredJobCompiler.cs" />
     <Compile Include="Layering\JobExecutionSession.cs" />

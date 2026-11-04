@@ -86,6 +86,7 @@ namespace LaserGRBL.Tests.Layering
                     controller.CopyLayers(new[] { layer });
                     Assert.True(controller.Clipboard.HasContent);
                     Assert.Empty(controller.Paste()); Assert.Empty(controller.DuplicateLayers(new[] { layer }));
+                    Assert.False(controller.SetPassOrder(JobPassOrder.ByObject)); Assert.Equal(JobPassOrder.ByLayer, document.PassOrder);
                     var objects = new[] { new VectorSelection(layer, layer.VectorItems[0], layer.VectorItems[0].Paths[0]) };
                     controller.CopyObjects(objects); Assert.True(controller.Clipboard.ContainsObjects);
                     Assert.Empty(controller.DuplicateObjects(objects)); Assert.Single(document.Layers);
@@ -164,6 +165,58 @@ namespace LaserGRBL.Tests.Layering
                         controller.Load(filename); Assert.False(controller.Clipboard.HasContent);
                     }
                     finally { controller.ExitLayeredMode(); if (System.IO.File.Exists(filename)) System.IO.File.Delete(filename); }
+                }
+            });
+        }
+
+        [Fact]
+        public void PassOrderDialog_SpanishChoicesAndCancel_KeepButtonsVisibleAndReturnSelectedMode()
+        {
+            Sta(() =>
+            {
+                Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("es-MX");
+                var type = typeof(LaserDocument).Assembly.GetType("LaserGRBL.Layering.JobPassOrderDialog");
+                using (var dialog = (Form)Activator.CreateInstance(type, new object[] { JobPassOrder.ByLayer }))
+                {
+                    dialog.CreateControl(); dialog.PerformLayout();
+                    Assert.Equal(JobPassOrder.ByLayer, type.GetProperty("PassOrder").GetValue(dialog));
+                    var layout = (TableLayoutPanel)dialog.Controls[0];
+                    var radios = layout.Controls.OfType<RadioButton>().ToList(); Assert.Equal(2, radios.Count);
+                    Assert.Contains("Por objeto", radios[0].Text); Assert.Contains("Por capa", radios[1].Text);
+                    radios[0].Checked = true;
+                    Assert.Equal(JobPassOrder.ByObject, type.GetProperty("PassOrder").GetValue(dialog));
+                    Assert.Equal(DialogResult.Cancel, ((Button)dialog.CancelButton).DialogResult);
+                    Assert.Equal(DialogResult.OK, ((Button)dialog.AcceptButton).DialogResult);
+                    Assert.True(layout.GetPreferredSize(Size.Empty).Height <= dialog.ClientSize.Height);
+                }
+            });
+        }
+
+        [Fact]
+        public void Controller_SetPassOrder_RegeneratesCommandsAndKeepsPreviousJobOnValidationFailure()
+        {
+            Sta(() =>
+            {
+                using (var sync = new Control())
+                {
+                    var core = new GrblCore(sync, null, null); var controller = core.LayerController; var document = Document();
+                    document.Layers[0].Passes = 2;
+                    document.Layers[0].VectorItems[0].Paths.Add(document.Layers[0].VectorItems[0].Paths[0].Clone());
+                    typeof(LayerDocumentController).GetProperty("Document").SetValue(controller, document);
+                    int notifications = 0; controller.DocumentChanged += () => notifications++;
+                    Assert.True(controller.SetPassOrder(JobPassOrder.ByObject));
+                    Assert.Equal(JobPassOrder.ByObject, document.PassOrder); Assert.Equal(1, notifications); Assert.True(document.IsDirty);
+                    Assert.Equal(new[] { 0, 0, 1, 1 }, core.LoadedFile.Commands.Where(c => c.IsJobCheckpoint).Select(c => c.SourceObjectIndex));
+                    Assert.True(controller.SetPassOrder(JobPassOrder.ByObject, 10));
+                    Assert.Equal(40, core.LoadedFile.Commands.Count(c => c.IsJobCheckpoint));
+                    Assert.True(controller.SetPassOrder(JobPassOrder.ByObject, 1));
+                    Assert.Equal(4, core.LoadedFile.Commands.Count(c => c.IsJobCheckpoint));
+                    Assert.Equal(2, document.Layers[0].Passes);
+                    var commands = core.LoadedFile.Commands.Select(c => c.Command).ToList();
+                    document.Layers[0].SpeedMmPerMinute = 0;
+                    Assert.False(controller.SetPassOrder(JobPassOrder.ByLayer));
+                    Assert.Equal(JobPassOrder.ByObject, document.PassOrder);
+                    Assert.Equal(commands, core.LoadedFile.Commands.Select(c => c.Command)); Assert.Equal(3, notifications);
                 }
             });
         }

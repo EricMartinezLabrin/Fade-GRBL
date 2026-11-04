@@ -80,4 +80,12 @@
 <data name="Paste" xml:space="preserve"><value>Pegar</value></data>
 <data name="Duplicate" xml:space="preserve"><value>Duplicar</value></data>
 <data name="CopySuffix" xml:space="preserve"><value> copia</value></data>
+  <data name="PassOrderTitle" xml:space="preserve"><value>Orden de las pasadas</value></data>
+  <data name="PassOrderQuestion" xml:space="preserve"><value>¿Cómo quieres realizar las pasadas?</value></data>
+  <data name="PassOrderObjects" xml:space="preserve"><value>Por objeto — cortes interiores primero</value></data>
+  <data name="PassOrderObjectsExplanation" xml:space="preserve"><value>Completa todas las vueltas de cada objeto antes del siguiente: pasadas de su capa × contador de repeticiones. Interiores primero, incluso entre capas distintas. Rellenos e imágenes se procesan completos.</value></data>
+  <data name="PassOrderLayers" xml:space="preserve"><value>Por capa — comportamiento actual</value></data>
+  <data name="PassOrderLayersExplanation" xml:space="preserve"><value>Hace una pasada de todos los objetos de la capa y repite la capa hasta completar sus pasadas.</value></data>
+  <data name="PassOrderStart" xml:space="preserve"><value>Continuar</value></data>
+  <data name="JobObjectProgress" xml:space="preserve"><value>Capa: {0} · Objeto {1} · Pasada {2}/{3} · {4} completadas</value></data>
 </root>

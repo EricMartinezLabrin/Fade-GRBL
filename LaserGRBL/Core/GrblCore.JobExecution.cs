@@ -18,6 +18,9 @@ namespace LaserGRBL
         private GPoint mJobPausePosition, mJobPauseWco;
         private string mJobError;
         private JobRebuild mJobRebuild;
+        private int mPreparedObjectRepetitions = 1;
+        private decimal JobCyclesRemaining
+        { get { return JobSession != null && JobSession.Document != null && JobSession.Document.PassOrder == JobPassOrder.ByObject ? 1 : mLoopCount; } }
 
         private sealed class JobRebuild
         {
@@ -48,12 +51,30 @@ namespace LaserGRBL
             lock (this) { if (JobSession == null) return null; JobSession.SetCyclesRemaining((int)mLoopCount); return JobSession.Snapshot(); }
         }
 
+        private bool ChooseJobPassOrder(Form owner)
+        {
+            if (!LayerController.IsLayered) return true;
+            using (var dialog = new JobPassOrderDialog(LayerController.Document.PassOrder))
+            {
+                if (dialog.ShowDialog(owner) != DialogResult.OK) return false;
+                try
+                {
+                    int repetitions = dialog.PassOrder == JobPassOrder.ByObject ? Math.Max(1, (int)mLoopCount) : 1;
+                    if (LayerController.SetPassOrder(dialog.PassOrder, repetitions))
+                    { mPreparedObjectRepetitions = repetitions; return true; }
+                }
+                catch (Exception ex) { Logger.LogException("Pass order", ex); }
+                MessageBox.Show(owner, LayerText.Get("JobCompileFailed"), LayerText.Get("PassOrderTitle"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
         private void BeginJobSession(bool first, bool pass)
         {
             if (pass && JobSession != null && JobSession.Active) JobSession.NextCycle(file);
             else
             {
-                JobSession = new JobExecutionSession(file, LayerController.Document, (int)mLoopCount);
+                JobSession = new JobExecutionSession(file, LayerController.Document, (int)mLoopCount, mPreparedObjectRepetitions);
                 mJobError = null; mJobStagedDocument = null;
             }
             mJobPauseRequested = mJobStopped = mJobAwaitIdle = mJobFooterQueued = false;
@@ -135,7 +156,7 @@ namespace LaserGRBL
         private void RequestJobEnd()
         {
             if (!IsGrbl11 || MachineStatus == MacStatus.Check) { OnProgramEnd(); return; }
-            if (!mJobFooterQueued && mLoopCount <= 1)
+            if (!mJobFooterQueued && JobCyclesRemaining <= 1)
             {
                 mJobFooterQueued = true;
                 OnJobEnd();
@@ -265,7 +286,7 @@ namespace LaserGRBL
         private LayeredCompilation CompileJobDocument(LaserDocument document)
         {
             LayeredCompilation compilation = LayeredJobCompiler.Compile(document, Math.Max(1, (int)Configuration.MaxPWM),
-                Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOn", "M4"), "M5");
+                Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOn", "M4"), "M5", JobSession == null ? 1 : JobSession.ObjectRepetitions);
             if (compilation.HasErrors) throw new InvalidOperationException(LayerText.Get("FixErrors"));
             return compilation;
         }
@@ -289,7 +310,8 @@ namespace LaserGRBL
             }
             catch (Exception ex) { mJobError = LayerText.Get("JobCompileFailed") + " " + ex.Message; return; }
             List<GrblCommand> commands = prepared.ToList();
-            int position = commands.FindIndex(c => c.SourceLayerId == anchor.SourceLayerId && c.SourcePass == anchor.SourcePass && c.SourceCommandIndex == anchor.SourceCommandIndex);
+            int position = commands.FindIndex(c => c.SourceLayerId == anchor.SourceLayerId && c.SourceObjectIndex == anchor.SourceObjectIndex &&
+                c.SourcePass == anchor.SourcePass && c.SourceCommandIndex == anchor.SourceCommandIndex);
             if (position < 0) { mJobError = LayerText.Get("JobCompileFailed"); return; }
             // Only a linear move can continue from its interior without changing arc geometry.
             anchor.BuildHelper();
@@ -323,6 +345,7 @@ namespace LaserGRBL
                 {
                     GrblCommand explicitMotion = new GrblCommand(builder.MotionMode, first);
                     explicitMotion.SourceLayerId = first.SourceLayerId; explicitMotion.SourcePass = first.SourcePass;
+                    explicitMotion.SourceObjectIndex = first.SourceObjectIndex;
                     explicitMotion.SourceCommandIndex = first.SourceCommandIndex; explicitMotion.SourceMovement = first.SourceMovement;
                     explicitMotion.IsCuttingMovement = first.IsCuttingMovement; explicitMotion.SetOffset(first.TimeOffset);
                     commands[rebuild.Position] = explicitMotion;

@@ -1334,7 +1334,9 @@ namespace LaserGRBL
 					mDoingSend = true;
 
 					if (mTP.Executed == 0 || mTP.Executed == mTP.Target) //mai iniziato oppure correttamente finito
-						RunProgramFromStart(false, true);
+					{
+                        if (ChooseJobPassOrder(parent)) RunProgramFromStart(false, true);
+                    }
 					else
 						UserWantToContinue(parent);
 				}
@@ -3036,8 +3038,8 @@ namespace LaserGRBL
 
 		private void OnProgramEnd()
 		{
-			if (JobSession != null && JobSession.Active && mLoopCount <= 1) JobSession.SetState(JobExecutionState.Completed);
-			if (mTP.JobEnd(mLoopCount == 1) && mLoopCount > 1 && mMachineStatus != MacStatus.Check)
+            if (JobSession != null && JobSession.Active && JobCyclesRemaining <= 1) JobSession.SetState(JobExecutionState.Completed);
+            if (mTP.JobEnd(JobCyclesRemaining == 1) && JobCyclesRemaining > 1 && mMachineStatus != MacStatus.Check)
 			{
 				Logger.LogMessage("CycleEnd", "Cycle Executed: {0} lines, {1} errors, {2}", file.Count, mTP.ErrorCount, Tools.Utils.TimeSpanToString(ProgramTime, Tools.Utils.TimePrecision.Second, Tools.Utils.TimePrecision.Second, ",", true));
 				mSentPtr.Add(new GrblMessage(string.Format("[{0} lines, {1} errors, {2}]", file.Count, mTP.ErrorCount, Tools.Utils.TimeSpanToString(ProgramTime, Tools.Utils.TimePrecision.Second, Tools.Utils.TimePrecision.Second, ",", true)), GrblMessage.MessageType.Diagnostic));

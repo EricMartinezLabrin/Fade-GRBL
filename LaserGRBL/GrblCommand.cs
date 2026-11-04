@@ -146,6 +146,7 @@ namespace LaserGRBL
         private int mRepeatCount;
         public Object3DDisplayList LinkedDisplayList { get; internal set; } = null;
         public Guid? SourceLayerId { get; internal set; }
+        public int SourceObjectIndex { get; internal set; } = -1;
         public int SourcePass { get; internal set; }
         public int SourceCommandIndex { get; internal set; }
         public int SourceMovement { get; internal set; }
