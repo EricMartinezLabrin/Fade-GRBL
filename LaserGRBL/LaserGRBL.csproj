@@ -2529,6 +2529,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Layering\LayerText.resx" />
     <EmbeddedResource Include="Grafica\FadeTechLogo.png" />
+    <None Include="Grafica\FadeSplash.png" />
     <EmbeddedResource Include="Layering\LayerText.es.resx" />
   </ItemGroup>
   <ItemGroup>

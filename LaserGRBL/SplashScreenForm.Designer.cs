@@ -44,8 +44,8 @@
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.BackColor = System.Drawing.Color.White;
 			this.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("$this.BackgroundImage")));
-			this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-			this.ClientSize = new System.Drawing.Size(756, 333);
+			this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+			this.ClientSize = new System.Drawing.Size(756, 378);
 			this.DoubleBuffered = true;
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
 			this.Name = "SplashScreenForm";

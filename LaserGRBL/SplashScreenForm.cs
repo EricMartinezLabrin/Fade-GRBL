@@ -17,7 +17,7 @@ namespace LaserGRBL
 		public SplashScreenForm()
 		{
 			InitializeComponent();
-			this.Size = BackgroundImage.Size;
+			this.Font = UserControls.FadeTheme.BodyFont;
 			this.DoubleBuffered = true;
 			mVersion = "v" + Program.CurrentVersion.ToString(3);
 		}
@@ -30,8 +30,9 @@ namespace LaserGRBL
 			e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 			e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 			e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-			e.Graphics.DrawString(mVersion, Font, Brushes.Black,  Width - s.Width -3 , Height - s.Height - 3);
-			//e.Graphics.DrawRectangle(Pens.DarkGray, 2, 2, Width - 5, Height - 5);
+			float margin = 16 * e.Graphics.DpiX / 96f;
+			using (Brush text = new SolidBrush(new FadeColorScheme(false).FormForeColor))
+				e.Graphics.DrawString(mVersion, Font, text, ClientSize.Width - s.Width - margin, ClientSize.Height - s.Height - margin);
 		}
 
 		private void SplashScreenForm_Load(object sender, EventArgs e)

@@ -46,6 +46,16 @@ public static class FadeDesignSnapshots
         Settings.ForcedGraphicMode = Settings.GraphicMode.GDI;
         Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("es-MX");
         typeof(MainForm).Assembly.GetType("LaserGRBL.Program").GetProperty("CurrentVersion").SetValue(null, new Version(1, 0, 0), null);
+        using (var splash = new SplashScreenForm())
+        {
+            splash.Show(); splash.PerformLayout();
+            using (var bitmap = new Bitmap(splash.Width, splash.Height))
+            {
+                splash.DrawToBitmap(bitmap, new Rectangle(Point.Empty, splash.Size));
+                bitmap.Save(Path.Combine(output, "FadeSplash.png"));
+            }
+            splash.Close();
+        }
         LaserGRBL.Icons.IconsMgr.Initialize();
         typeof(CustomButtons).GetField("buttons", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, new System.Collections.Generic.List<CustomButton>());
         foreach (ColorScheme.Scheme scheme in new[] { ColorScheme.Scheme.FadeLight, ColorScheme.Scheme.FadeDark })

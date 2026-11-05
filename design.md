@@ -213,6 +213,8 @@ La implementación debe respetar **WinForms y .NET Framework 4.0**, así como la
 
 ## 8. Implementación compartida y revisión
 
+La pantalla de inicio usa `LaserGRBL/Grafica/FadeSplash.png`, incorporada mediante `SplashScreenForm.resx`: fondo blanco, identidad Fade Tech, nombre FadeGRBL e ilustración técnica en grafito y ámbar. La versión se dibuja desde la aplicación y no forma parte de la imagen. Conservar la proporción 2:1 y márgenes al adaptar su tamaño. El harness también genera `FadeSplash.png` con el formulario real.
+
 Los temas «Fade · Claro» y «Fade · Oscuro» se seleccionan en **Colores**; el claro es el valor inicial del nuevo sistema. La preferencia se guarda en `Fade Design Theme`. Los esquemas anteriores siguen disponibles.
 
 `FadeColorScheme` define la paleta y `FadeTheme` aplica componentes, menús, tablas, foco y estados a la ventana principal y a los formularios de la aplicación. Los diálogos nativos del sistema conservan su presentación de Windows. El encabezado usa el logo incorporado como recurso, sin depender de la carpeta personal del usuario.
