@@ -17,6 +17,10 @@ namespace LaserGRBL.UserControls
         void SetSelectionBounds(RectangleF? bounds);
         void SetSelectionContours(IEnumerable<Layering.VectorPath> paths);
         void SetLayerEditing(bool enabled);
+        void SetSelectionRectangle(RectangleF? rectangle, bool crossing);
+        void SetReferenceBounds(RectangleF? bounds);
+        void ResetViewport();
+        event Action ViewportChanged;
 
     }
 }

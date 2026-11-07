@@ -1,31 +1,28 @@
-# FadeGRBL 1.0.0 — Notas de versión
+# FadeGRBL 1.0.0 — Primera versión
 
-4 de noviembre de 2026. Cambios acumulados desde LaserGRBL 7.14.1 (clon: 1f9337b).
+6 de noviembre de 2026. Inicio de numeración propia de FadeGRBL.
 
-## Capas y edición
+## Lienzo y edición
 
-- Capas vectoriales y rasterizadas con nombre, color, orden, velocidad, potencia y pasadas independientes; modos de línea y relleno.
-- Crear, duplicar, combinar, reordenar y eliminar capas completas, con selección múltiple y confirmación de borrado.
-- Selección, movimiento y eliminación de objetos dentro de un SVG; corrección de importación y resolución del DTD.
-- Panel de capas plegable y redimensionable; edición validada al terminar de escribir.
-- Movimiento y tamaño desde el lienzo o campos en mm, con bloqueo de proporción.
-- Copiar, pegar y duplicar capas u objetos. Copias independientes, desplazadas 5 mm y con salida apagada.
-- Visibilidad y salida independientes: las capas sin salida quedan como referencia y no conectan con la trayectoria; al activarlas vuelven a conectarse.
-- Proyectos de capas en XML comprimido, conservando contenido y ajustes; lectura de proyectos heredados restringida a tipos admitidos.
+- Capas vectoriales e imágenes con color, nombre, orden, velocidad, potencia, pasadas, visibilidad y salida.
+- Deshacer y rehacer hasta 100 operaciones; cortar, copiar, pegar y duplicar capas u objetos.
+- Vista editable inmediata, independiente del G-code. Ctrl+Z actualiza dibujo sin pasos invisibles por medidas sin editar.
+- Agrupar y desagrupar; reconocimiento de grupos anidados en SVG.
+- Fusión automática de capas vectoriales del mismo color, conservando ajustes de destino. Copias vectoriales comparten salida y ajustes; imágenes mantienen capas independientes.
+- Paleta al pulsar muestra o código de color, con colores personalizados y cuentagotas.
+- Rectángulos, elipses y líneas con extremos editables. Texto directo sobre lienzo, fuentes instaladas y conversión a contornos.
+- Alineación respecto a mesa o último elemento seleccionado, que permanece fijo.
+- Selector hacia abajo: encierra por completo. Hacia arriba: selecciona elementos tocados. Ctrl añade; Escape cancela.
+- Ruedita presionada desplaza; estirar, girar e inclinar con manejadores, campos numéricos, pivote ajustable y bloqueo de proporciones.
+- Proyectos v4 con lectura de v2/v3/v4; conserva grupos, texto y transformaciones.
 
-## Ejecución
+## Ejecución y presentación
 
-- Pasadas por capa o por objeto, con interiores primero y repeticiones combinadas.
-- Progreso por capa/objeto y pasada, tiempo estimado conservador y menos parpadeo.
-- Pausa, reanudación, detención y ajustes pendientes de velocidad, potencia y pasadas.
-- Recuperación y retroceso dentro de la pasada, con comprobaciones de estado y posición; bloqueo de edición durante trabajos activos.
+- Pasadas por capa u objeto, interiores primero, progreso, pausa, reanudación, ajustes pendientes y recuperación con comprobaciones de estado y posición.
+- Edición bloqueada durante trabajos activos.
+- Temas claro/oscuro Fade, interfaz en español y paneles redimensionables.
+- .NET Framework 4.8; ejecutable e instalador identificados como FadeGRBL 1.0.0.
 
-## Identidad y distribución
+## Verificación
 
-- Temas Fade claro/oscuro, logo, paleta blanco/grafito/ámbar, textos en español y nueva imagen de inicio FadeGRBL.
-- Interfaz y diálogos unificados; guía design.md y capturas de revisión.
-- .NET Framework 4.8 e instalador FadeGRBL 1.0.0.
-
-## Validación
-
-Release correcta, 66 pruebas aprobadas y capturas GDI revisadas. Instalador sin regenerar. Pendientes: sesión normal, DPI alto, OpenGL y pruebas físicas de corte y recuperación.
+Release, pruebas de capas y comprobaciones nativas; capturas GDI revisadas. Pendientes: interacción normal OpenGL, DPI alto y pruebas físicas de corte y recuperación.

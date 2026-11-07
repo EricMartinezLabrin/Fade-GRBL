@@ -382,6 +382,7 @@ namespace LaserGRBL
         public static bool DarkScheme => CurrentSchemeColors.IsDark;
         public static bool IsFade => CurrentScheme == Scheme.FadeLight || CurrentScheme == Scheme.FadeDark;
         public static Color BrandAmber => Color.FromArgb(246, 180, 42);
+        public static Color SelectedContour => DarkScheme ? Color.FromArgb(100, 216, 255) : Color.FromArgb(0, 107, 143);
         public static Color BrandGraphite => Color.FromArgb(57, 62, 70);
         public static Color AppBackground => DarkScheme ? Color.FromArgb(32, 36, 43) : Color.FromArgb(246, 247, 249);
         public static Color SurfaceSubtle => DarkScheme ? Color.FromArgb(50, 56, 66) : Color.FromArgb(240, 242, 245);

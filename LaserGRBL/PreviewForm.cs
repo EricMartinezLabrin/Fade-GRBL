@@ -47,7 +47,7 @@ namespace LaserGRBL
 		private bool MovingLayers;
 		private PointF DragStartPoint;
 		private Dictionary<Guid, LayerTransformState> DragTransforms = new Dictionary<Guid, LayerTransformState>();
-		private long LastPreviewCompile;
+
 		public IGrblPanel GrblPanel { private set; get; } = null;
 
 		public PreviewForm()
@@ -156,6 +156,7 @@ namespace LaserGRBL
 
         private void CreatePanel()
         {
+            if(InlineText != null) FinishInlineText(true);
 			if (GrblPanel != null)
             {
 				(GrblPanel as Control).Parent?.Controls.Remove(GrblPanel as Control);
@@ -177,6 +178,16 @@ namespace LaserGRBL
 			canvas.MouseDown += CanvasMouseDown;
 			canvas.MouseMove += CanvasMouseMove;
 			canvas.MouseUp += CanvasMouseUp;
+            GrblPanel.ViewportChanged += OnCanvasViewportChanged;
+            canvas.MouseCaptureChanged += (s, e) => { if (!canvas.Capture) OnCanvasCaptureLost(); };
+            canvas.LostFocus += (s, e) => OnCanvasCaptureLost();
+            canvas.MouseDoubleClick += (s, e) =>
+            {
+                if (mCore == null || !mCore.LayerController.IsLayered) return;
+                EditCanvasText(LayerGeometry.FindContour(mCore.LayerController.Document, e.Location, GrblPanel.MachineToClient, 6));
+            };
+            InstallCanvasMenu(canvas);
+            InstallDirectEditing(canvas);
 			RefreshSelectionEditor();
         }
 
@@ -192,7 +203,7 @@ namespace LaserGRBL
 			ObjectModeButton = new ToolStripButton(LayerText.Get("Objects")) { CheckOnClick = true, ToolTipText = LayerText.Get("ObjectsTooltip") };
 			ToolStripButton layersButton = new ToolStripButton(LayerText.Get("Layers")) { Checked = true };
 			layersButton.Click += (s, e) => { ObjectModeButton.Checked = false; };
-			ObjectModeButton.CheckedChanged += (s, e) => { layersButton.Checked = !ObjectModeButton.Checked; SelectedObjects.Clear(); RefreshSelectionEditor(); };
+			ObjectModeButton.CheckedChanged += (s, e) => { layersButton.Checked = !ObjectModeButton.Checked; SelectedObjects.Clear(); if (!ApplyingUnits && !RestoringSelection) SelectedRasterItems.Clear(); RefreshSelectionEditor(); };
 			SizeToolbar.Items.Insert(0, new ToolStripSeparator());
 			SizeToolbar.Items.Insert(0, ObjectModeButton); SizeToolbar.Items.Insert(0, layersButton);
 			DeleteObjectsButton = new ToolStripButton(LayerText.Get("DeleteObjects"));
@@ -204,9 +215,18 @@ namespace LaserGRBL
             PasteButton.Click += (s, e) => PasteCanvasSelection(false);
             DuplicateButton.Click += (s, e) => PasteCanvasSelection(true);
             SizeToolbar.Items.AddRange(new ToolStripItem[] { CopyButton, PasteButton, DuplicateButton });
+            BuildCanvasEditingTools();
             WidthBox.KeyDown += SizeBoxKeyDown; HeightBox.KeyDown += SizeBoxKeyDown;
+            WidthBox.TextChanged += (s, e) => { if (!UpdatingDimensionText) WidthEdited = true; };
+            HeightBox.TextChanged += (s, e) => { if (!UpdatingDimensionText) HeightEdited = true; };
 			WidthBox.Leave += (s, e) => ApplyTypedSize(true); HeightBox.Leave += (s, e) => ApplyTypedSize(false);
-			CanvasHost.Controls.Add(SizeToolbar, 0, 0);
+            var toolbars = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 1, RowCount = 4, Margin = Padding.Empty };
+            toolbars.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            toolbars.RowStyles.Add(new RowStyle(SizeType.AutoSize)); toolbars.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            toolbars.RowStyles.Add(new RowStyle(SizeType.AutoSize)); toolbars.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            toolbars.Controls.Add(EditingToolbar, 0, 0); toolbars.Controls.Add(SizeToolbar, 0, 1);
+            toolbars.Controls.Add(TransformToolbar,0,2); toolbars.Controls.Add(TextToolbar,0,3);
+            CanvasHost.Controls.Add(toolbars, 0, 0);
 		}
 
         private void CreateEmptyState()
@@ -228,6 +248,11 @@ namespace LaserGRBL
 			ResizeHandle.MouseDown += ResizeHandleMouseDown;
 			ResizeHandle.MouseMove += ResizeHandleMouseMove;
 			ResizeHandle.MouseUp += ResizeHandleMouseUp;
+            ResizeHandle.MouseCaptureChanged += (s, e) =>
+            {
+                if (!ResizeHandle.Capture && ResizingLayer)
+                { ResizingLayer = false; if (mCore != null) mCore.LayerController.CancelEdit(); }
+            };
 			(GrblPanel as Control).Controls.Add(ResizeHandle);
 			ResizeHandle.BringToFront();
 			(GrblPanel as Control).Resize += (s, e) => PositionResizeHandle();
@@ -235,16 +260,32 @@ namespace LaserGRBL
 
 		private void SetSelectedLayers(IList<LaserLayer> layers)
 		{
+            if (layers == null || !SelectedLayers.Select(l => l.Id).SequenceEqual(layers.Where(l => l != null).Select(l => l.Id))) ClearSizeErrors();
 			SelectedLayers = layers == null ? new List<LaserLayer>() : layers.Where(layer => layer != null).ToList();
+            if (ApplyingUnits) return;
+            if (!ApplyingUnits && !RestoringSelection && LayerManager.ContainsFocus && mCore != null && mCore.LayerController.IsLayered)
+            {
+                ObjectModeButton.Checked = false;
+                var active = LayerManager.ActiveLayer;
+                var unit = CanvasLayout.Units(mCore.LayerController.Document, false).FirstOrDefault(u => active != null && u.Layers.Contains(active));
+                if (unit != null) ReferenceId = unit.Id;
+            }
+            if (mCore != null && mCore.LayerController.Document != null && !RestoringSelection && !ObjectModeButton.Checked)
+            {
+                var document = mCore.LayerController.Document;
+                var roots = new HashSet<Guid>(SelectedLayers.Select(l => CanvasGroups.Root(document, l.GroupId)).Where(id => id != Guid.Empty));
+                SelectedLayers = document.Layers.Where(l => SelectedLayers.Contains(l) || roots.Contains(CanvasGroups.Root(document, l.GroupId))).ToList();
+            }
 			RefreshSelectionEditor();
 		}
 
 		private void RefreshSelectionEditor()
 		{
+            if (DrawingShape) return;
             if (EmptyState != null)
             {
                 bool empty = mCore == null || (!mCore.HasProgram && (!mCore.LayerController.IsLayered || !mCore.LayerController.Document.Layers.Any(layer => layer.HasContent)));
-                EmptyState.Visible = empty;
+                EmptyState.Visible = empty && ActiveCanvasTool == CanvasShape.Select;
                 EmptyState.Controls[1].Enabled = mCore != null && mCore.CanLoadNewFile;
             }
 			RectangleF bounds = RectangleF.Empty;
@@ -254,33 +295,43 @@ namespace LaserGRBL
 			SelectedObjects.RemoveAll(item => !item.IsCurrent(mCore == null ? null : mCore.LayerController.Document));
 			DeleteObjectsButton.Text = LayerText.Get(objects ? "DeleteObjects" : "DeleteLayer");
 			DeleteObjectsButton.ToolTipText = DeleteObjectsButton.Text + " (Del)";
-			DeleteObjectsButton.Enabled = layered && (objects ? SelectedObjects.Count > 0 : SelectedLayers.Count > 0);
-			GrblPanel.SetSelectionContours(objects ? SelectedObjects.Select(item => LayerGeometry.Transform(item.Path, item.Layer)) : Enumerable.Empty<VectorPath>());
+			DeleteObjectsButton.Enabled = layered && (objects ? SelectedObjects.Count > 0 || SelectedRasterItems.Count > 0 : SelectedLayers.Count > 0);
+			GrblPanel.SetSelectionContours(objects ? SelectedObjects.Select(item => LayerGeometry.Transform(item.Path, item.Layer)) :
+                SelectedLayers.Where(layer => layer.Visible && layer.ContentKind == LayerContentKind.Vector)
+                    .SelectMany(layer => layer.VectorItems.SelectMany(item => item.Paths).Select(path => LayerGeometry.Transform(path, layer))));
 			bool enabled = layered && !objects && LayerGeometry.TryGetBounds(SelectedLayers, out bounds);
-			SizeToolbar.Enabled = mCore != null && mCore.LayerController.IsLayered;
-            bool hasSelection = objects ? SelectedObjects.Count > 0 : SelectedLayers.Count > 0;
+            SizeToolbar.Enabled = mCore != null && !mCore.JobEditingLocked;
+            bool hasSelection = objects ? SelectedObjects.Count > 0 || SelectedRasterItems.Count > 0 : SelectedLayers.Count > 0;
             CopyButton.Enabled = hasSelection;
             PasteButton.Enabled = layered && mCore.LayerController.Clipboard.HasContent;
             DuplicateButton.Enabled = layered && hasSelection;
+            RefreshCanvasTools(layered, hasSelection);
+            RememberCanvasSelection();
+            if (InlineText != null)
+            {
+                WidthBox.Enabled = HeightBox.Enabled = LockAspectButton.Enabled = false;
+                GrblPanel.SetSelectionContours(Enumerable.Empty<VectorPath>()); GrblPanel.SetSelectionBounds(null);
+                if (ResizeHandle != null) ResizeHandle.Visible = false;
+                return;
+            }
 			WidthBox.Enabled = HeightBox.Enabled = LockAspectButton.Enabled = enabled;
-			if (objects && SelectedObjects.Count > 0)
+			if (objects && (SelectedObjects.Count > 0 || SelectedRasterItems.Count > 0))
 			{
-				bounds = SelectedObjects[0].Bounds;
-				foreach (VectorSelection item in SelectedObjects.Skip(1)) bounds = RectangleF.Union(bounds, item.Bounds);
+                TrySelectionBounds(out bounds);
 				GrblPanel.SetSelectionBounds(bounds);
-				WidthBox.Text = bounds.Width.ToString("0.###", CultureInfo.CurrentCulture); HeightBox.Text = bounds.Height.ToString("0.###", CultureInfo.CurrentCulture);
-				if (ResizeHandle != null) ResizeHandle.Visible = false;
+                RefreshDimensionText(bounds);
+				WidthBox.Enabled = HeightBox.Enabled = LockAspectButton.Enabled = layered;
+                PositionResizeHandle();
 				return;
 			}
 			if (!enabled)
 			{
-				WidthBox.Text = HeightBox.Text = string.Empty;
+                SetDimensionText(WidthBox, string.Empty); SetDimensionText(HeightBox, string.Empty);
 				if (GrblPanel != null) GrblPanel.SetSelectionBounds(null);
 				if (ResizeHandle != null) ResizeHandle.Visible = false;
 				return;
 			}
-			if (!WidthBox.Focused) WidthBox.Text = bounds.Width.ToString("0.###", CultureInfo.CurrentCulture);
-			if (!HeightBox.Focused) HeightBox.Text = bounds.Height.ToString("0.###", CultureInfo.CurrentCulture);
+            RefreshDimensionText(bounds);
 			GrblPanel.SetSelectionBounds(bounds);
 			PositionResizeHandle();
 		}
@@ -288,7 +339,7 @@ namespace LaserGRBL
 		private void PositionResizeHandle()
 		{
 			RectangleF bounds;
-			if (ResizeHandle == null || GrblPanel == null || ObjectModeButton.Checked || mCore == null || mCore.JobEditingLocked || !LayerGeometry.TryGetBounds(SelectedLayers, out bounds)) { if (ResizeHandle != null) ResizeHandle.Visible = false; return; }
+            if (ResizeHandle == null || InlineText != null || GrblPanel == null || mCore == null || mCore.JobEditingLocked || !TrySelectionBounds(out bounds)) { if (ResizeHandle != null) ResizeHandle.Visible = false; return; }
 			PointF point = GrblPanel.MachineToClient(new PointF(bounds.Right, bounds.Top));
 			ResizeHandle.Left = (int)Math.Round(point.X) - ResizeHandle.Width / 2;
 			ResizeHandle.Top = (int)Math.Round(point.Y) - ResizeHandle.Height / 2;
@@ -299,7 +350,8 @@ namespace LaserGRBL
 		private void ResizeHandleMouseDown(object sender, MouseEventArgs e)
 		{
 			if (mCore == null || mCore.JobEditingLocked) return;
-			if (e.Button != MouseButtons.Left || !LayerGeometry.TryGetBounds(SelectedLayers, out DragStartBounds)) return;
+			if (e.Button != MouseButtons.Left || !TrySelectionBounds(out DragStartBounds)) return;
+            if (ObjectModeButton.Checked) ObjectDragPaths = SelectedObjects.ToDictionary(item => item, item => item.Path.Clone());
 			CaptureTransforms();
 			ResizingLayer = true; ResizeHandle.Capture = true;
 		}
@@ -336,10 +388,14 @@ namespace LaserGRBL
 		private void ApplyTypedSize(bool widthChanged)
 		{
 			if (mCore == null || mCore.JobEditingLocked) return;
-			if (ObjectModeButton.Checked) return;
+            if (!(widthChanged ? WidthEdited : HeightEdited)) return;
+			if (ObjectModeButton.Checked) { ApplyObjectSize(widthChanged); return; }
 			RectangleF bounds; double value;
 			ToolStripTextBox source = widthChanged ? WidthBox : HeightBox;
-			if (!LayerGeometry.TryGetBounds(SelectedLayers, out bounds) || !TryReadDimension(source.Text, out value) || value <= 0) { RefreshSelectionEditor(); return; }
+            if (!LayerGeometry.TryGetBounds(SelectedLayers, out bounds) || !TryReadDimension(source.Text, out value) || value <= 0) { ShowSizeError(source); return; }
+            ClearSizeError(source);
+            ConfirmDimensionEdit(source);
+            if (DimensionUnchanged(value, widthChanged ? bounds.Width : bounds.Height)) return;
 			double width = widthChanged ? value : bounds.Width;
 			double height = widthChanged ? bounds.Height : value;
 			if (LockAspectButton.Checked)
@@ -355,17 +411,29 @@ namespace LaserGRBL
 
 		private static bool TryReadDimension(string text, out double value)
 		{
-			return double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+            bool parsed = double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+            return parsed && !double.IsNaN(value) && !double.IsInfinity(value);
 		}
 
 		private void CaptureTransforms()
 		{
-			DragTransforms = SelectedLayers.ToDictionary(layer => layer.Id, layer => new LayerTransformState(layer));
+            DragTransforms = (ObjectModeButton.Checked ? GroupRasterObjects() : SelectedLayers).ToDictionary(layer => layer.Id, layer => new LayerTransformState(layer));
 		}
 
 		private void ApplyResize(double width, double height, bool preserveMaximumY, bool livePreview)
 		{
 			if (mCore == null || DragStartBounds.Width <= 0 || DragStartBounds.Height <= 0) return;
+            if (ObjectModeButton.Checked)
+            {
+                foreach (var entry in ObjectDragPaths) { entry.Key.Path.Points = entry.Value.Points.Select(p => p.Clone()).ToList(); entry.Key.Path.Pose = entry.Value.Pose.Clone(); }
+                foreach (var raster in GroupRasterObjects())
+                {
+                    LayerTransformState state;
+                    if (DragTransforms.TryGetValue(raster.Id, out state)) { raster.CrossX = state.CrossX; raster.CrossY = state.CrossY; raster.ScaleX = state.ScaleX; raster.ScaleY = state.ScaleY; raster.TranslateX = state.TranslateX; raster.TranslateY = state.TranslateY; }
+                }
+                ResizeObjects(DragStartBounds, width / DragStartBounds.Width, height / DragStartBounds.Height, preserveMaximumY);
+                RefreshSelectionEditor(); if (livePreview) RequestLivePreview(); return;
+            }
 			double ratioX = width / DragStartBounds.Width;
 			double ratioY = height / DragStartBounds.Height;
 			double anchorX = DragStartBounds.Left;
@@ -374,7 +442,8 @@ namespace LaserGRBL
 			{
 				LayerTransformState state;
 				if (!DragTransforms.TryGetValue(layer.Id, out state)) continue;
-				layer.ScaleX = state.ScaleX * ratioX;
+				layer.CrossX = state.CrossX * ratioX; layer.CrossY = state.CrossY * ratioY;
+                layer.ScaleX = state.ScaleX * ratioX;
 				layer.ScaleY = state.ScaleY * ratioY;
 				layer.TranslateX = anchorX + (state.TranslateX - anchorX) * ratioX;
 				layer.TranslateY = anchorY + (state.TranslateY - anchorY) * ratioY;
@@ -389,52 +458,24 @@ namespace LaserGRBL
 			if (e.Button != MouseButtons.Left || mCore == null || !mCore.LayerController.IsLayered) return;
 			(sender as Control).Focus();
 			PointF machine = GrblPanel.ClientToMachine(e.Location);
-			if (ObjectModeButton.Checked)
-			{
-				VectorSelection objectHit = LayerGeometry.FindContour(mCore.LayerController.Document, e.Location, GrblPanel.MachineToClient, 6);
-				bool ctrl = (ModifierKeys & Keys.Control) == Keys.Control;
-				VectorSelection existing = objectHit == null ? null : SelectedObjects.FirstOrDefault(item => item.Path == objectHit.Path && item.Layer == objectHit.Layer);
-				if (!ctrl && existing == null) SelectedObjects.Clear();
-				if (objectHit != null)
-				{
-					if (ctrl && existing != null) SelectedObjects.Remove(existing);
-					else if (existing == null) SelectedObjects.Add(objectHit);
-					MovingObjects = !ctrl || existing == null;
-					DragStartPoint = machine;
-					ObjectDragPaths = SelectedObjects.ToDictionary(item => item, item => item.Path.Clone());
-					(sender as Control).Capture = MovingObjects;
-				}
-				RefreshSelectionEditor();
-				return;
-			}
-			LaserLayer hit = FindLayerAt(machine);
-			bool control = (ModifierKeys & Keys.Control) == Keys.Control;
-			if (hit == null)
-			{
-				if (!control) LayerManager.SelectLayers(new LaserLayer[0]);
-				return;
-			}
-			List<LaserLayer> selection = new List<LaserLayer>(SelectedLayers);
-			if (control)
-			{
-				if (selection.Contains(hit)) selection.Remove(hit); else selection.Add(hit);
-			}
-			else { selection.Clear(); selection.Add(hit); }
-			LayerManager.SelectLayers(selection);
-			if (!selection.Contains(hit)) return;
-			MovingLayers = true;
-			DragStartPoint = machine;
-			CaptureTransforms();
-			(sender as Control).Capture = true;
+            if (InlineText != null) { if (!BeginInlinePointer(e)) FinishInlineText(true); return; }
+            if (BeginAffineGesture(e)) return;
+            if (BeginCanvasTool(machine, sender as Control)) return;
+            BeginSelectionPointer(e);
 		}
 
 		private void CanvasMouseMove(object sender, MouseEventArgs e)
 		{
 			if (mCore == null || mCore.JobEditingLocked) return;
+            if (MoveInlinePointer(e)) return;
+            if (MoveAffineGesture(e)) return;
+            if (DrawingShape) { UpdateShapePreview(GrblPanel.ClientToMachine(e.Location)); return; }
+            if (e.Button == MouseButtons.Left && MoveSelectionPointer(e)) return;
 			if (MovingObjects && e.Button == MouseButtons.Left)
 			{
 				PointF current = GrblPanel.ClientToMachine(e.Location);
 				foreach (var item in ObjectDragPaths) item.Key.MoveFrom(item.Value, current.X - DragStartPoint.X, current.Y - DragStartPoint.Y);
+                MoveGroupRasters(current.X - DragStartPoint.X, current.Y - DragStartPoint.Y);
 				RefreshSelectionEditor(); RequestLivePreview(); return;
 			}
 			if (!MovingLayers || e.Button != MouseButtons.Left) return;
@@ -454,6 +495,10 @@ namespace LaserGRBL
 
 		private void CanvasMouseUp(object sender, MouseEventArgs e)
 		{
+            if (InlinePointerAnchor >= 0 && e.Button == MouseButtons.Left) { InlinePointerAnchor = -1; (sender as Control).Capture = false; return; }
+            if (EndAffineGesture(e)) return;
+            if (DrawingShape && e.Button == MouseButtons.Left) { FinishCanvasShape(GrblPanel.ClientToMachine(e.Location), sender as Control); return; }
+            if (EndSelectionPointer(e)) return;
 			if (e.Button == MouseButtons.Left && MovingObjects)
 			{
 				MovingObjects = false; (sender as Control).Capture = false; CommitCanvasTransform(); return;
@@ -475,11 +520,7 @@ namespace LaserGRBL
 
 		private void RequestLivePreview()
 		{
-			long now = System.Diagnostics.Stopwatch.GetTimestamp();
-			long interval = Math.Max(1, System.Diagnostics.Stopwatch.Frequency / 20);
-			if (now - LastPreviewCompile < interval) return;
-			LastPreviewCompile = now;
-			mCore.LayerController.RequestCompile(true, false);
+            mCore.LayerController.PreviewChanged();
 		}
 
 		private void CommitCanvasTransform()
@@ -492,9 +533,13 @@ namespace LaserGRBL
 		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
 		{
 			bool canvasFocused = (GrblPanel as Control).ContainsFocus;
-            bool editingText = WidthBox.Focused || HeightBox.Focused || LayerManager.IsEditingText;
-            if (!editingText && mCore != null && mCore.LayerController.IsLayered && (canvasFocused || LayerManager.ContainsFocus || SizeToolbar.ContainsFocus))
+            bool editingText = CanvasKeyboard.IsTextEditing(this);
+            if (InlineText != null && InlineText.Focused && keyData == (Keys.Control | Keys.Shift | Keys.Z)) { InlineText.Redo(); return true; }
+            if (InlineText != null && InlineText.Focused && (keyData == Keys.Escape || keyData == (Keys.Control | Keys.Enter))) { FinishInlineText(keyData != Keys.Escape); return true; }
+            if (keyData == Keys.Escape && CancelAffineGesture()) return true;
+            if (!editingText && mCore != null && mCore.LayerController.IsLayered && (canvasFocused || LayerManager.ContainsFocus || SizeToolbar.ContainsFocus || EditingToolbar.ContainsFocus))
             {
+                if (HandleCanvasCommand(keyData)) return true;
                 if (keyData == (Keys.Control | Keys.C)) { if (LayerManager.ContainsFocus) mCore.LayerController.CopyLayers(SelectedLayers); else CopyCanvasSelection(); RefreshSelectionEditor(); return true; }
                 if (keyData == (Keys.Control | Keys.V)) { PasteCanvasSelection(false); return true; }
                 if (keyData == (Keys.Control | Keys.D)) { PasteCanvasSelection(true, LayerManager.ContainsFocus); return true; }
@@ -505,7 +550,13 @@ namespace LaserGRBL
                     return true;
                 }
             }
-			if (keyData == Keys.Escape && canvasFocused && ObjectModeButton.Checked) { SelectedObjects.Clear(); RefreshSelectionEditor(); return true; }
+            if (keyData == Keys.Escape && canvasFocused)
+            {
+                if (CancelSelectionPointer()) return true;
+                if (DrawingShape || ActiveCanvasTool != CanvasShape.Select) { CancelCanvasTool(); return true; }
+                if (MovingObjects || MovingLayers || ResizingLayer) { MovingObjects = MovingLayers = ResizingLayer = false; (GrblPanel as Control).Capture = false; ResizeHandle.Capture = false; mCore.LayerController.CancelEdit(); return true; }
+                if (ObjectModeButton.Checked) { SelectedObjects.Clear(); RefreshSelectionEditor(); return true; }
+            }
 			if (keyData == (Keys.Control | Keys.A) && mCore != null && mCore.LayerController.IsLayered && !WidthBox.Focused && !HeightBox.Focused && !LayerManager.IsEditingText)
 			{
 				if (ObjectModeButton.Checked && canvasFocused)
@@ -525,7 +576,7 @@ namespace LaserGRBL
 		private void CopyCanvasSelection()
         {
             if (mCore == null || !mCore.LayerController.IsLayered) return;
-            if (ObjectModeButton.Checked) mCore.LayerController.CopyObjects(SelectedObjects);
+            if (ObjectModeButton.Checked) mCore.LayerController.CopyObjects(SelectedObjects, SelectedRasterItems);
             else mCore.LayerController.CopyLayers(SelectedLayers);
             RefreshSelectionEditor();
         }
@@ -535,7 +586,7 @@ namespace LaserGRBL
             bool objects = duplicate ? ObjectModeButton.Checked && !layersOnly : mCore.LayerController.Clipboard.ContainsObjects;
             IList<LaserLayer> copies;
             if (!duplicate) copies = mCore.LayerController.Paste();
-            else if (objects) copies = mCore.LayerController.DuplicateObjects(SelectedObjects);
+            else if (objects) copies = mCore.LayerController.DuplicateObjects(SelectedObjects, SelectedRasterItems);
             else copies = mCore.LayerController.DuplicateLayers(SelectedLayers);
             SelectCopies(objects, copies);
         }
@@ -545,25 +596,27 @@ namespace LaserGRBL
             ObjectModeButton.Checked = objects;
             LayerManager.SelectLayers(copies);
             SelectedObjects.Clear();
+            SelectedRasterItems.Clear(); if (objects) SelectedRasterItems.AddRange(copies.Where(l => l.ContentKind == LayerContentKind.Raster));
             if (objects)
                 foreach (LaserLayer layer in copies)
                     foreach (VectorItem item in layer.VectorItems)
-                        foreach (VectorPath path in item.Paths) SelectedObjects.Add(new VectorSelection(layer, item, path));
+                        foreach (VectorPath path in item.Paths.Where(p => mCore.LayerController.LastInsertedPaths.Contains(p.Id))) SelectedObjects.Add(new VectorSelection(layer, item, path));
             RefreshSelectionEditor();
         }
         private void DeleteSelectedObjects()
 		{
 			if (mCore == null || mCore.JobEditingLocked) return;
-			if (!ObjectModeButton.Checked || mCore == null || !mCore.LayerController.IsLayered || SelectedObjects.Count == 0) return;
-			foreach (VectorSelection item in SelectedObjects.Where(item => item.IsCurrent(mCore.LayerController.Document))) item.Delete();
+			if (!ObjectModeButton.Checked || mCore == null || !mCore.LayerController.IsLayered || (SelectedObjects.Count == 0 && SelectedRasterItems.Count == 0)) return;
+            mCore.LayerController.DeleteObjects(SelectedObjects, SelectedRasterItems);
 			SelectedObjects.Clear();
-			mCore.LayerController.Changed(); RefreshSelectionEditor();
+            SelectedRasterItems.Clear();
+            RefreshSelectionEditor();
 		}
 
 		private sealed class LayerTransformState
 		{
-			public readonly double ScaleX, ScaleY, TranslateX, TranslateY;
-			public LayerTransformState(LaserLayer layer) { ScaleX = layer.ScaleX; ScaleY = layer.ScaleY; TranslateX = layer.TranslateX; TranslateY = layer.TranslateY; }
+			public readonly double ScaleX, ScaleY, CrossX, CrossY, TranslateX, TranslateY;
+			public LayerTransformState(LaserLayer layer) { CrossX = layer.CrossX; CrossY = layer.CrossY; ScaleX = layer.ScaleX; ScaleY = layer.ScaleY; TranslateX = layer.TranslateX; TranslateY = layer.TranslateY; }
 		}
 
         private void CustomButtonArea_OrderChanged(int oldindex, int newindex)
@@ -574,10 +627,20 @@ namespace LaserGRBL
 
 		public void SetCore(GrblCore core)
 		{
+            if (mCore != null)
+            {
+                mCore.LayerController.DocumentChanged -= RefreshSelectionEditor;
+                mCore.LayerController.SelectionRestored -= RestoreCanvasSelection;
+                mCore.LayerController.HistoryStateChanged -= RefreshHistoryTools;
+                mCore.LayerController.DocumentReplaced -= ResetCanvasViewport;
+            }
 			mCore = core;
             GrblPanel.SetCore(core);
 			LayerManager.SetCore(core);
 			core.LayerController.DocumentChanged += RefreshSelectionEditor;
+            core.LayerController.SelectionRestored += RestoreCanvasSelection;
+            core.LayerController.HistoryStateChanged += RefreshHistoryTools;
+            core.LayerController.DocumentReplaced += ResetCanvasViewport;
 
             BtnUnlock.Visible = mCore.Type == Firmware.Grbl;
 
@@ -1043,6 +1106,7 @@ namespace LaserGRBL
 
 		internal void OnColorChange()
 		{
+            FadeTheme.Apply(EditingToolbar); FadeTheme.Apply(TransformToolbar); FadeTheme.Apply(TextToolbar);
             GrblPanel.OnColorChange();
 			LayerManager.ApplyTheme();
             FadeTheme.Apply(SizeToolbar);

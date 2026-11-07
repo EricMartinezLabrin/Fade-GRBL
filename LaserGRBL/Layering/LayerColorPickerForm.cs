@@ -10,6 +10,7 @@ namespace LaserGRBL.Layering
         private readonly Label rgb = new Label();
         private readonly Timer eyedropperTimer = new Timer();
         private readonly Bitmap samplePixel = new Bitmap(1, 1);
+        private readonly ToolTip colorHints = new ToolTip();
         private Color selectedColor;
         private Color colorBeforeEyedropper;
         private bool eyedropperActive;
@@ -25,7 +26,8 @@ namespace LaserGRBL.Layering
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(370, 190);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            ClientSize = new Size(370, 282);
             BackColor = ColorScheme.FormBackColor;
             ForeColor = ColorScheme.FormForeColor;
 
@@ -36,10 +38,20 @@ namespace LaserGRBL.Layering
             rgb.TextAlign = ContentAlignment.MiddleCenter;
             rgb.ForeColor = ForeColor;
 
-            Button palette = new Button { Left = 20, Top = 112, Width = 155, Height = 30, Text = LayerText.Get("Palette") };
-            Button eyedropper = new Button { Left = 195, Top = 112, Width = 155, Height = 30, Text = LayerText.Get("Eyedropper") };
-            Button ok = new Button { Left = 195, Top = 152, Width = 75, Text = "OK", DialogResult = DialogResult.OK };
-            Button cancel = new Button { Left = 275, Top = 152, Width = 75, Text = LayerText.Get("Cancel"), DialogResult = DialogResult.Cancel };
+            Color[] colors = { Color.Black, Color.Gray, Color.White, Color.Red, Color.Orange, Color.Gold, Color.Yellow, Color.Green,
+                Color.LimeGreen, Color.Cyan, Color.Blue, Color.DarkBlue, Color.Purple, Color.Magenta, Color.Brown, Color.Pink };
+            for (int i = 0; i < colors.Length; i++)
+            {
+                Color color = colors[i]; string hex = string.Format("#{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
+                var swatch = new Button { Name = "LayerColorPreview", Left = 20 + i % 8 * 42, Top = 112 + i / 8 * 40, Width = 36, Height = 32,
+                    BackColor = color, FlatStyle = FlatStyle.Flat, AccessibleName = hex, UseVisualStyleBackColor = false };
+                swatch.FlatAppearance.BorderColor = ColorScheme.ControlsBorder; colorHints.SetToolTip(swatch, hex);
+                swatch.Click += (s, e) => { selectedColor = color; RefreshColor(); }; Controls.Add(swatch);
+            }
+            Button palette = new Button { Left = 20, Top = 196, Width = 155, Height = 32, Text = LayerText.Get("Palette") };
+            Button eyedropper = new Button { Left = 195, Top = 196, Width = 155, Height = 32, Text = LayerText.Get("Eyedropper") };
+            Button ok = new Button { Left = 195, Top = 240, Width = 75, Height = 32, Text = "OK", DialogResult = DialogResult.OK };
+            Button cancel = new Button { Left = 275, Top = 240, Width = 75, Height = 32, Text = LayerText.Get("Cancel"), DialogResult = DialogResult.Cancel };
             palette.Click += ChooseFromPalette;
             eyedropper.Click += ChooseFromScreen;
             eyedropperTimer.Interval = 40;
@@ -72,6 +84,12 @@ namespace LaserGRBL.Layering
                     selectedColor = Color.FromArgb(255, dialog.Color.R, dialog.Color.G, dialog.Color.B);
                     RefreshColor();
                 }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (eyedropperActive && keyData == Keys.Escape) { StopEyedropper(false); return true; }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private void ChooseFromScreen(object sender, EventArgs e)
@@ -140,6 +158,7 @@ namespace LaserGRBL.Layering
             {
                 eyedropperTimer.Dispose();
                 samplePixel.Dispose();
+                colorHints.Dispose();
             }
             base.Dispose(disposing);
         }

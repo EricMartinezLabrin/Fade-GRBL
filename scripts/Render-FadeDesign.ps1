@@ -1,4 +1,4 @@
-param([string]$OutputDirectory = (Join-Path $PSScriptRoot '..\LaserGRBL.Tests\TestResults\design'))
+﻿param([string]$OutputDirectory = (Join-Path $PSScriptRoot '..\LaserGRBL.Tests\TestResults\design'))
 $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSEdition -eq 'Core') { throw 'Run with Windows PowerShell 5.1 (.NET Framework), not pwsh.' }
 $applicationPath = Join-Path $PSScriptRoot '..\LaserGRBL\bin\Release\LaserGRBL.exe'
@@ -45,7 +45,7 @@ public static class FadeDesignSnapshots
         Application.EnableVisualStyles();
         Settings.ForcedGraphicMode = Settings.GraphicMode.GDI;
         Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("es-MX");
-        typeof(MainForm).Assembly.GetType("LaserGRBL.Program").GetProperty("CurrentVersion").SetValue(null, new Version(1, 0, 0), null);
+        typeof(MainForm).Assembly.GetType("LaserGRBL.Program").GetProperty("CurrentVersion").SetValue(null, typeof(MainForm).Assembly.GetName().Version, null);
         using (var splash = new SplashScreenForm())
         {
             splash.Show(); splash.PerformLayout();
@@ -70,6 +70,7 @@ public static class FadeDesignSnapshots
                     form.ClientSize = new Size(1280, 800);
                     var shell = form.Controls.OfType<TableLayoutPanel>().Single();
                     var core = (GrblCore)typeof(MainForm).GetField("Core", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
+                    core.LayerController.NewDocument();
                     var document = new LaserDocument();
                     for (int i = 0; i < 3; i++)
                     {
@@ -102,8 +103,46 @@ public static class FadeDesignSnapshots
                         }
                         Console.WriteLine(scheme + " " + size + " workspace=" + workspace.Size + " progress=" + shell.GetControlFromPosition(0, 3).Size);
                     }
+                    form.ClientSize = new Size(1280, 800); form.PerformLayout();
+                    var preview = (PreviewForm)typeof(MainForm).GetField("PreviewForm", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
+                    var manager = (LayerManagerControl)typeof(PreviewForm).GetField("LayerManager", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(preview);
+                    manager.SelectLayers(document.Layers.Take(2).ToList());
+                    var reference = (ToolStripMenuItem)typeof(PreviewForm).GetField("AlignToReference", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(preview);
+                    reference.PerformClick();
+                    foreach (bool crossing in new[] { false, true })
+                    {
+                        var selector = new RectangleF(80, 80, 220, 180);
+                        var selected = CanvasLayout.Units(document, false).Where(u => CanvasLayout.Matches(u, selector, crossing, preview.GrblPanel.MachineToClient)).ToList();
+                        manager.SelectLayers(selected.SelectMany(u => u.Layers).ToList());
+                        preview.GrblPanel.SetSelectionRectangle(selector, crossing);
+                        using (var bitmap = new Bitmap(form.Width, form.Height))
+                        {
+                            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+                            bitmap.Save(Path.Combine(output, scheme + (crossing ? "-selection-up.png" : "-selection-down.png")));
+                        }
+                    }
+                    preview.GrblPanel.SetSelectionRectangle(null, false);
+                    var align = (ToolStripDropDownButton)typeof(PreviewForm).GetField("AlignButton", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(preview);
+                    align.ShowDropDown();
+                    using (var bitmap = new Bitmap(align.DropDown.Width, align.DropDown.Height))
+                    { align.DropDown.DrawToBitmap(bitmap, new Rectangle(Point.Empty, align.DropDown.Size)); bitmap.Save(Path.Combine(output, scheme + "-alignment-menu.png")); }
+                    align.HideDropDown();
                     SaveDialog("JobPassOrderDialog", new object[] { JobPassOrder.ByObject }, scheme, output, "pass-order");
                     SaveDialog("LayerColorPickerForm", new object[] { Color.FromArgb(246, 180, 42) }, scheme, output, "color-picker");
+                    var flags=BindingFlags.Instance|BindingFlags.NonPublic;
+                    var canvas=(Control)preview.GrblPanel;
+                    typeof(PreviewForm).GetMethod("BeginInlineText",flags).Invoke(preview,new object[]{null,preview.GrblPanel.ClientToMachine(new PointF(canvas.Width/5,canvas.Height/4))});
+                    ((RichTextBox)typeof(PreviewForm).GetField("InlineText",flags).GetValue(preview)).Text="M\u00e9xico\r\nTexto editable";
+                    form.PerformLayout();
+                    using(var bitmap=new Bitmap(form.Width,form.Height))
+                    {form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,form.Size));bitmap.Save(Path.Combine(output,scheme+"-text-editor.png"));}
+                    typeof(PreviewForm).GetMethod("FinishInlineText",flags).Invoke(preview,new object[]{true});
+                    var angle=(ToolStripTextBox)typeof(PreviewForm).GetField("AngleBox",flags).GetValue(preview);
+                    angle.Text="25";typeof(PreviewForm).GetMethod("ApplyTransformField",flags).Invoke(preview,new object[]{angle});
+                    var shear=(ToolStripTextBox)typeof(PreviewForm).GetField("ShearXBox",flags).GetValue(preview);
+                    shear.Text="12";typeof(PreviewForm).GetMethod("ApplyTransformField",flags).Invoke(preview,new object[]{shear});
+                    using(var bitmap=new Bitmap(form.Width,form.Height))
+                    {form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,form.Size));bitmap.Save(Path.Combine(output,scheme+"-transformed-text.png"));}
                     var session = new JobExecutionSession(LayeredJobCompiler.Compile(document, 1000, "M4", "M5").OutputCommands, document, 1);
                     session.SetState(JobExecutionState.Paused);
                     SaveDialog("JobParametersDialog", new object[] { document, session }, scheme, output, "parameters");

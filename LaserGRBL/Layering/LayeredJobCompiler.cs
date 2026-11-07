@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Text.RegularExpressions;
 
 namespace LaserGRBL.Layering
@@ -21,16 +22,17 @@ namespace LaserGRBL.Layering
         private static readonly Regex FeedRegex = new Regex(@"(?<![A-Z])F-?\d+(?:\.\d+)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex PowerRegex = new Regex(@"(?<![A-Z])S(-?\d+(?:\.\d+)?)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        public static LayeredCompilation Compile(LaserDocument document, int maxPwm, string laserOn, string laserOff, int objectRepetitions = 1)
+        public static LayeredCompilation Compile(LaserDocument document, int maxPwm, string laserOn, string laserOff, int objectRepetitions = 1, CancellationToken cancellation = default(CancellationToken))
         {
             LayeredCompilation result = new LayeredCompilation();
             if (document == null) return result;
-            if (document.PassOrder == JobPassOrder.ByObject) return CompileObjects(document, maxPwm, laserOn, laserOff, Math.Max(1, objectRepetitions));
+            if (document.PassOrder == JobPassOrder.ByObject) return CompileObjects(document, maxPwm, laserOn, laserOff, Math.Max(1, objectRepetitions), cancellation);
             foreach (LaserLayer layer in document.Layers.OrderBy(l => l.Order))
             {
+                cancellation.ThrowIfCancellationRequested();
                 layer.HasError = false;
                 layer.StatusMessage = null;
-                // Copies keep their source color. Layer identity and job metadata use Id.
+                // Processing settings and job metadata belong to the destination layer.
                 string validation = layer.Validate();
                 if (validation != null)
                 {
@@ -41,7 +43,8 @@ namespace LaserGRBL.Layering
                 }
 
                 List<string> block;
-                try { block = CompileLayer(layer, maxPwm, laserOn, laserOff); }
+                try { block = CompileLayer(layer, maxPwm, laserOn, laserOff, null, cancellation); }
+                catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
                     layer.HasError = layer.OutputEnabled;
@@ -73,12 +76,13 @@ namespace LaserGRBL.Layering
             public List<string> Commands;
         }
 
-        private static LayeredCompilation CompileObjects(LaserDocument document, int maxPwm, string laserOn, string laserOff, int repetitions)
+        private static LayeredCompilation CompileObjects(LaserDocument document, int maxPwm, string laserOn, string laserOff, int repetitions, CancellationToken cancellation)
         {
             var result = new LayeredCompilation();
             var objects = new List<CutObject>();
             foreach (LaserLayer layer in document.Layers.OrderBy(l => l.Order))
             {
+                cancellation.ThrowIfCancellationRequested();
                 layer.HasError = false; layer.StatusMessage = layer.Validate();
                 if (layer.StatusMessage != null)
                 {
@@ -96,7 +100,7 @@ namespace LaserGRBL.Layering
                             {
                                 VectorPath transformed = LayerGeometry.Transform(path, layer);
                                 layerObjects.Add(new CutObject { Layer = layer, Index = index, Path = transformed,
-                                    Commands = CompileLayer(layer, maxPwm, laserOn, laserOff, transformed) });
+                                    Commands = CompileLayer(layer, maxPwm, laserOn, laserOff, transformed, cancellation) });
                             }
                             index++;
                         }
@@ -104,12 +108,13 @@ namespace LaserGRBL.Layering
                     else
                     {
                         // Raster and fill retain their whole-layer geometry (including holes).
-                        layerObjects.Add(new CutObject { Layer = layer, Commands = CompileLayer(layer, maxPwm, laserOn, laserOff) });
+                        layerObjects.Add(new CutObject { Layer = layer, Commands = CompileLayer(layer, maxPwm, laserOn, laserOff, null, cancellation) });
                     }
                     if (!layerObjects.Any(item => item.Commands.Count > 0) && layer.OutputEnabled)
                         throw new InvalidOperationException("Layer has no valid geometry for selected mode.");
                     objects.AddRange(layerObjects);
                 }
+                catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
                     layer.StatusMessage = ex.Message; layer.HasError = layer.OutputEnabled; result.HasErrors |= layer.HasError;
@@ -168,18 +173,18 @@ namespace LaserGRBL.Layering
             }
         }
 
-        private static List<string> CompileLayer(LaserLayer layer, int maxPwm, string laserOn, string laserOff, VectorPath objectPath = null)
+        private static List<string> CompileLayer(LaserLayer layer, int maxPwm, string laserOn, string laserOff, VectorPath objectPath = null, CancellationToken cancellation = default(CancellationToken))
         {
             if (!layer.HasContent) return new List<string>();
-            if (layer.Mode == LayerMode.Image) return CompileRaster(layer, maxPwm);
+            if (layer.Mode == LayerMode.Image) return CompileRaster(layer, maxPwm, cancellation);
 
             List<VectorPath> source = objectPath == null ? layer.VectorItems.SelectMany(i => i.Paths).Where(p => p.Points.Count > 1)
                 .Select(path => LayerGeometry.Transform(path, layer)).ToList() : new List<VectorPath> { objectPath };
             List<VectorPath> paths;
             switch (layer.Mode)
             {
-                case LayerMode.Fill: paths = BuildHatch(source.Where(p => p.Closed).ToList(), layer.FillSettings); break;
-                case LayerMode.OffsetFill: paths = BuildOffsets(source.Where(p => p.Closed).ToList(), layer.FillSettings); break;
+                case LayerMode.Fill: paths = BuildHatch(source.Where(p => p.Closed).ToList(), layer.FillSettings, cancellation); break;
+                case LayerMode.OffsetFill: paths = BuildOffsets(source.Where(p => p.Closed).ToList(), layer.FillSettings, cancellation); break;
                 default: paths = OrderLinePaths(source); break;
             }
             if ((layer.Mode == LayerMode.Fill || layer.Mode == LayerMode.OffsetFill) && source.Any(p => !p.Closed))
@@ -190,6 +195,7 @@ namespace LaserGRBL.Layering
             onePass.Add(string.Format(CultureInfo.InvariantCulture, "F{0}", layer.SpeedMmPerMinute));
             foreach (VectorPath path in paths)
             {
+                cancellation.ThrowIfCancellationRequested();
                 if (path.Points.Count < 2) continue;
                 LaserPoint first = path.Points[0];
                 onePass.Add(string.Format(CultureInfo.InvariantCulture, "G0 X{0:0.###} Y{1:0.###}", first.X, first.Y));
@@ -204,7 +210,7 @@ namespace LaserGRBL.Layering
             return Repeat(onePass, layer.Passes);
         }
 
-        private static List<string> CompileRaster(LaserLayer layer, int maxPwm)
+        private static List<string> CompileRaster(LaserLayer layer, int maxPwm, CancellationToken cancellation)
         {
             RasterItem raster = layer.RasterItem;
             if (raster == null) return new List<string>();
@@ -215,6 +221,7 @@ namespace LaserGRBL.Layering
             List<string> pass = new List<string>();
             foreach (string original in LayerGeometry.TransformRasterCommands(raster.BaseCommands, layer))
             {
+                cancellation.ThrowIfCancellationRequested();
                 string line = FeedRegex.Replace(original, "F" + layer.SpeedMmPerMinute.ToString(CultureInfo.InvariantCulture));
                 line = PowerRegex.Replace(line, m =>
                 {
@@ -241,7 +248,7 @@ namespace LaserGRBL.Layering
             return paths.OrderBy(p => p.Closed ? Math.Abs(SignedArea(p.Points)) : double.MaxValue).ToList();
         }
 
-        private static List<VectorPath> BuildHatch(List<VectorPath> polygons, LayerFillSettings settings)
+        private static List<VectorPath> BuildHatch(List<VectorPath> polygons, LayerFillSettings settings, CancellationToken cancellation)
         {
             if (polygons.Count == 0) return new List<VectorPath>();
             double radians = -settings.AngleDegrees * Math.PI / 180.0;
@@ -254,6 +261,7 @@ namespace LaserGRBL.Layering
             int row = 0;
             for (double y = minY; y <= maxY + settings.IntervalMm / 2; y += settings.IntervalMm, row++)
             {
+                cancellation.ThrowIfCancellationRequested();
                 List<IntPoint> line = new List<IntPoint> { ToIntPoint(new LaserPoint(minX - 1, y)), ToIntPoint(new LaserPoint(maxX + 1, y)) };
                 if (settings.Bidirectional && row % 2 == 1) line.Reverse();
                 lines.Add(line);
@@ -279,7 +287,7 @@ namespace LaserGRBL.Layering
             return segments.Select(p => new VectorPath { Closed = false, Points = Rotate(p, back) }).ToList();
         }
 
-        private static List<VectorPath> BuildOffsets(List<VectorPath> polygons, LayerFillSettings settings)
+        private static List<VectorPath> BuildOffsets(List<VectorPath> polygons, LayerFillSettings settings, CancellationToken cancellation)
         {
             List<List<IntPoint>> subjects = polygons.Select(p => p.Points.Select(ToIntPoint).ToList()).Where(p => p.Count > 2).ToList();
             List<VectorPath> result = new List<VectorPath>();
@@ -293,6 +301,7 @@ namespace LaserGRBL.Layering
             double step = settings.IntervalMm * ClipperScale;
             for (int iteration = 0; iteration < 100000; iteration++)
             {
+                cancellation.ThrowIfCancellationRequested();
                 List<List<IntPoint>> solution = new List<List<IntPoint>>();
                 offsetter.Execute(ref solution, -(step / 2.0 + iteration * step));
                 if (solution.Count == 0) break;

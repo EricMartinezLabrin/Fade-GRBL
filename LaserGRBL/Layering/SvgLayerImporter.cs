@@ -19,8 +19,23 @@ namespace LaserGRBL.Layering
     {
         public static SvgImportResult Import(string filename, LaserDocument document, int defaultSpeed, double defaultPower)
         {
+            return Import(SvgDocument.Open(filename), filename, document, defaultSpeed, defaultPower);
+        }
+
+        public static SvgImportResult Import(SvgDocument svg, string filename, LaserDocument document, int defaultSpeed, double defaultPower)
+        {
             SvgImportResult result = new SvgImportResult();
-            SvgDocument svg = SvgDocument.Open(filename);
+            var groupIds = new Dictionary<SvgElement, Guid>();
+            foreach (var node in svg.Descendants().Where(e => e is SvgGroup))
+            {
+                var group = new CanvasGroup { Name = string.IsNullOrEmpty(node.ID) ? LayerText.Get("GroupName") : node.ID };
+                groupIds[node] = group.Id; document.Groups.Add(group);
+            }
+            foreach (var entry in groupIds)
+            {
+                var parent = entry.Key.Parents.FirstOrDefault(p => groupIds.ContainsKey(p));
+                if (parent != null) document.Groups.First(g => g.Id == entry.Value).ParentId = groupIds[parent];
+            }
             double ppi = svg.Ppi > 0 ? svg.Ppi : SvgDocument.PointsPerInch;
             double mmPerPixel = 25.4 / ppi;
             float documentWidth = svg.Width.ToDeviceValue(null, UnitRenderingType.Horizontal, svg);
@@ -45,6 +60,8 @@ namespace LaserGRBL.Layering
                     if (!TryGetColor(element, out color)) { result.SkippedElements++; continue; }
                     List<VectorPath> paths = ConvertPath(graphicsPath, documentHeight, mmPerPixel);
                     if (paths.Count == 0) { result.SkippedElements++; continue; }
+                    var owner = element.Parents.FirstOrDefault(p => groupIds.ContainsKey(p));
+                    if (owner != null) foreach (var path in paths) path.GroupId = groupIds[owner];
 
                     LaserLayer layer = document.FindByColor(color, LayerContentKind.Vector);
                     if (layer == null)

@@ -11,12 +11,13 @@ using Tools;
 
 namespace LaserGRBL.Layering
 {
-    public class LayerDocumentController
+    public partial class LayerDocumentController
     {
         private static readonly Color[] Palette = { Color.Red, Color.Blue, Color.Green, Color.Black, Color.Orange, Color.Purple, Color.Brown, Color.Cyan, Color.Magenta, Color.Gold, Color.DarkBlue, Color.DarkGreen };
         private readonly GrblCore core;
         private int requestedRevision;
         public CanvasClipboard Clipboard { get; private set; } = new CanvasClipboard();
+        public IList<Guid> LastInsertedPaths { get; private set; } = new List<Guid>();
 
         public LaserDocument Document { get; private set; }
         public bool IsLayered { get { return Document != null; } }
@@ -27,8 +28,10 @@ namespace LaserGRBL.Layering
 
         internal void ApplyJobDocument(LaserDocument document)
         {
-            Interlocked.Increment(ref requestedRevision);
+            InvalidateCompilation();
             Document = document.Clone(); Document.IsDirty = true;
+            transientEdit=false;
+            History.Commit(Document, Selection);
             IsCompilationCurrent = true; HasCompilationErrors = false;
             Form mainForm = Application.OpenForms.Count == 0 ? null : FormsHelper.MainForm;
             if (mainForm != null)
@@ -40,17 +43,24 @@ namespace LaserGRBL.Layering
 
         public void NewDocument()
         {
+            if (core.JobEditingLocked) return;
+            InvalidateCompilation();
             Clipboard.Clear();
             Document = new LaserDocument();
+            DocumentReplaced?.Invoke();
+            ResetHistory();
+            IsCompilationCurrent = true; HasCompilationErrors = false;
             core.UseLegacyPreview();
             NotifyDocumentChanged();
         }
 
         public void ExitLayeredMode()
         {
-            Interlocked.Increment(ref requestedRevision);
+            InvalidateCompilation();
             Clipboard.Clear();
             Document = null;
+            DocumentReplaced?.Invoke();
+            History = new CanvasHistory();
             IsCompilationCurrent = true;
             HasCompilationErrors = false;
             core.UseLegacyPreview();
@@ -59,22 +69,25 @@ namespace LaserGRBL.Layering
 
         public SvgImportResult ImportSvg(string filename, bool append)
         {
-            if (!append || Document == null) NewDocument();
+            if (core.JobEditingLocked) return new SvgImportResult();
+            bool replace = !append || Document == null;
+            if (replace) NewDocument();
             int speed = Settings.GetObject("GrayScaleConversion.VectorizeOptions.BorderSpeed", 1000);
             int configuredMax = Math.Max(1, (int)GrblCore.Configuration.MaxPWM);
             int rawPower = Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.PowerMax", configuredMax);
             SvgImportResult result = SvgLayerImporter.Import(filename, Document, speed, rawPower * 100.0 / configuredMax);
-            NotifyDocumentChanged();
-            RequestCompile();
+            FinishImport(replace);
             return result;
         }
 
         public void CaptureRasterImport(string filename, bool append, int previousCommandCount)
         {
+            if (core.JobEditingLocked) return;
             int start = append ? Math.Min(previousCommandCount, core.LoadedFile.Commands.Count) : 0;
             List<string> commands = core.LoadedFile.Commands.Skip(start).Select(c => c.Command).ToList();
             if (commands.Count == 0) return;
-            if (!append || Document == null) NewDocument();
+            bool replace = !append || Document == null;
+            if (replace) NewDocument();
             int maxPower = FindMaximumPower(commands);
             int minPower = FindMinimumPositivePower(commands);
             LaserLayer layer = new LaserLayer
@@ -99,21 +112,32 @@ namespace LaserGRBL.Layering
             };
             Document.Layers.Add(layer);
             Document.NormalizeOrder();
-            Document.IsDirty = true;
-            NotifyDocumentChanged();
-            RequestCompile();
+            FinishImport(replace);
         }
 
         public void Load(string filename)
         {
+            if (core.JobEditingLocked) return;
             LaserDocument loaded = LayerProjectSerializer.Load(filename);
             Clipboard.Clear();
             Document = loaded;
+            DocumentReplaced?.Invoke();
+            ResetHistory();
             NotifyDocumentChanged();
+            var missingFonts = Document.Layers.SelectMany(l => l.VectorItems).Where(i => i.Text != null && !CanvasObjects.FontAvailable(i.Text.FontFamily)).Select(i => i.Text.FontFamily).Distinct().ToList();
+            if (missingFonts.Count > 0 && Application.OpenForms.Count > 0)
+                MessageBox.Show(string.Format(LayerText.Get("MissingFont"), string.Join(", ", missingFonts.ToArray())), LayerText.Get("TextTool"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             RequestCompile(true);
         }
 
-        public void Save(string filename) { LayerProjectSerializer.Save(filename, Document); NotifyDocumentChanged(); }
+        public void Save(string filename)
+        {
+            // Validation can commit a cell immediately before Save, ahead of its
+            // queued Changed notification. Include that edit in the saved revision.
+            transientEdit=false;
+            History.Commit(Document, Selection);
+            LayerProjectSerializer.Save(filename, Document); History.MarkSaved(); NotifyDocumentChanged();
+        }
 
         public bool SetPassOrder(JobPassOrder order, int objectRepetitions = 1)
         {
@@ -122,8 +146,10 @@ namespace LaserGRBL.Layering
             LayeredCompilation compilation = LayeredJobCompiler.Compile(snapshot, Math.Max(1, (int)GrblCore.Configuration.MaxPWM),
                 Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOn", "M4"), "M5", objectRepetitions);
             if (compilation.HasErrors || !core.ApplyLayeredCompilation(compilation)) return false;
-            Interlocked.Increment(ref requestedRevision);
+            InvalidateCompilation();
             Document.IsDirty |= Document.PassOrder != order; Document.PassOrder = order;
+            transientEdit=false;
+            History.Commit(Document, Selection);
             IsCompilationCurrent = true; HasCompilationErrors = false;
             NotifyDocumentChanged(); RaiseCompilationState();
             return true;
@@ -131,6 +157,7 @@ namespace LaserGRBL.Layering
 
         public bool ReprocessRaster(LaserLayer layer)
         {
+            if (core.JobEditingLocked) return false;
             if (layer == null || layer.ContentKind != LayerContentKind.Raster || layer.RasterItem == null || layer.RasterItem.ImageData == null) return false;
             foreach (RasterSetting setting in layer.RasterItem.Settings)
                 Settings.SetObject(setting.Key, setting.ToValue());
@@ -165,6 +192,7 @@ namespace LaserGRBL.Layering
 
         public LaserLayer AddLayer()
         {
+            if (core.JobEditingLocked) return null;
             EnsureDocument();
             LaserLayer layer = new LaserLayer { Order = Document.Layers.Count, Name = "Layer " + (Document.Layers.Count + 1), Color = NextColor() };
             Document.Layers.Add(layer);
@@ -174,23 +202,24 @@ namespace LaserGRBL.Layering
 
         public LaserLayer Duplicate(LaserLayer source) { return DuplicateLayers(new[] { source }).FirstOrDefault(); }
         public void CopyLayers(IEnumerable<LaserLayer> layers) { Clipboard.CopyLayers(Document, layers); }
-        public void CopyObjects(IEnumerable<VectorSelection> objects) { Clipboard.CopyObjects(Document, objects); }
+        public void CopyObjects(IEnumerable<VectorSelection> objects, IEnumerable<LaserLayer> rasters = null) { Clipboard.CopyObjects(Document, objects, rasters); }
         public IList<LaserLayer> Paste() { return InsertCopies(Clipboard); }
         public IList<LaserLayer> DuplicateLayers(IEnumerable<LaserLayer> layers)
         {
             CanvasClipboard temporary = new CanvasClipboard(); temporary.CopyLayers(Document, layers);
             return InsertCopies(temporary);
         }
-        public IList<LaserLayer> DuplicateObjects(IEnumerable<VectorSelection> objects)
+        public IList<LaserLayer> DuplicateObjects(IEnumerable<VectorSelection> objects, IEnumerable<LaserLayer> rasters = null)
         {
-            CanvasClipboard temporary = new CanvasClipboard(); temporary.CopyObjects(Document, objects);
+            CanvasClipboard temporary = new CanvasClipboard(); temporary.CopyObjects(Document, objects, rasters);
             return InsertCopies(temporary);
         }
         private IList<LaserLayer> InsertCopies(CanvasClipboard clipboard)
         {
             IList<LaserLayer> copies = clipboard.Paste(Document, core.JobEditingLocked);
+            LastInsertedPaths = clipboard.LastPastedPaths.ToList();
             if (copies.Count > 0) { Changed(false); RequestCompile(false, false); }
-            return copies;
+            return copies.Select(c => Document.Layers.FirstOrDefault(l => l.Id == c.Id) ?? Document.FindByColor(c.Color, c.ContentKind)).Where(l => l != null).Distinct().ToList();
         }
 
         public void Remove(LaserLayer layer) { RemoveLayers(new[] { layer }); }
@@ -202,6 +231,7 @@ namespace LaserGRBL.Layering
         }
         public void Move(LaserLayer layer, int delta)
         {
+            if (core.JobEditingLocked || Document == null || layer == null) return;
             int oldIndex = Document.Layers.IndexOf(layer), newIndex = Math.Max(0, Math.Min(Document.Layers.Count - 1, oldIndex + delta));
             if (oldIndex < 0 || oldIndex == newIndex) return;
             Document.Layers.RemoveAt(oldIndex); Document.Layers.Insert(newIndex, layer); Changed();
@@ -209,6 +239,7 @@ namespace LaserGRBL.Layering
 
         public void MoveTo(LaserLayer layer, int newIndex)
         {
+            if (core.JobEditingLocked || Document == null || layer == null) return;
             int oldIndex = Document.Layers.IndexOf(layer);
             newIndex = Math.Max(0, Math.Min(Document.Layers.Count - 1, newIndex));
             if (oldIndex < 0 || oldIndex == newIndex) return;
@@ -217,10 +248,28 @@ namespace LaserGRBL.Layering
             Changed();
         }
 
+        private CancellationTokenSource compilationCancellation = new CancellationTokenSource();
+        private int InvalidateCompilation()
+        {
+            var previous=Interlocked.Exchange(ref compilationCancellation,new CancellationTokenSource());
+            previous.Cancel();previous.Dispose();return Interlocked.Increment(ref requestedRevision);
+        }
+        public void PreviewChanged()
+        {
+            if (core.JobEditingLocked) return;
+            InvalidateCompilation(); IsCompilationCurrent = false;
+            VisualChanged?.Invoke(); RaiseCompilationState();
+        }
+        public event Action VisualChanged;
+
         public void Changed(bool compile = true)
         {
+            if (core.JobEditingLocked) return;
             EnsureDocument();
-            Document.NormalizeOrder(); Document.IsDirty = true; NotifyDocumentChanged();
+            CanvasGroups.MergeColors(Document);
+            transientEdit=false;
+            History.Commit(Document, Selection);
+            NotifyDocumentChanged();
             if (compile) RequestCompile();
         }
 
@@ -228,10 +277,13 @@ namespace LaserGRBL.Layering
         {
             if (core.JobEditingLocked) return;
             if (Document == null) return;
-            int revision = Interlocked.Increment(ref requestedRevision);
+            int revision = InvalidateCompilation();
+            var cancellation=compilationCancellation.Token;
             LaserDocument snapshot = Document.Clone();
             IsCompilationCurrent = false;
             RaiseCompilationState();
+            Form compilationOwner = Application.OpenForms.Count == 0 ? null : FormsHelper.MainForm;
+            if (compilationOwner == null || !compilationOwner.IsHandleCreated || compilationOwner.IsDisposed) return;
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 if (!immediate) Thread.Sleep(350);
@@ -239,7 +291,8 @@ namespace LaserGRBL.Layering
                 int maxPwm = Math.Max(1, (int)GrblCore.Configuration.MaxPWM);
                 string laserOn = Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOn", "M4");
                 LayeredCompilation compilation;
-                try { compilation = LayeredJobCompiler.Compile(snapshot, maxPwm, laserOn, "M5"); }
+                try { compilation = LayeredJobCompiler.Compile(snapshot, maxPwm, laserOn, "M5", 1, cancellation); }
+                catch (OperationCanceledException) { return; }
                 catch (Exception ex)
                 {
                     compilation = new LayeredCompilation { HasErrors = true };
@@ -250,7 +303,8 @@ namespace LaserGRBL.Layering
                     }
                 }
                 if (revision != requestedRevision) return;
-                FormsHelper.MainForm.BeginInvoke((MethodInvoker)(() =>
+                if (compilationOwner.IsDisposed || !compilationOwner.IsHandleCreated) return;
+                try { compilationOwner.BeginInvoke((MethodInvoker)(() =>
                 {
                     if (revision != requestedRevision) return;
                     foreach (LaserLayer compiledLayer in snapshot.Layers)
@@ -272,12 +326,13 @@ namespace LaserGRBL.Layering
                     HasCompilationErrors = compilation.HasErrors;
                     if (notifyDocument) NotifyDocumentChanged();
                     RaiseCompilationState();
-                }));
+                })); }
+                catch (InvalidOperationException) { /* The owning window closed while compilation completed. */ }
             });
         }
 
-        private void EnsureDocument() { if (Document == null) Document = new LaserDocument(); }
-        private void NotifyDocumentChanged() { DocumentChanged?.Invoke(); }
+        private void EnsureDocument() { if (Document == null) { Document = new LaserDocument(); ResetHistory(); } }
+        private void NotifyDocumentChanged() { VisualChanged?.Invoke(); DocumentChanged?.Invoke(); }
         private void RaiseCompilationState() { CompilationStateChanged?.Invoke(); }
         private Color NextColor()
         {

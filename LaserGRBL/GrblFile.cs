@@ -1343,6 +1343,12 @@ namespace LaserGRBL
 
 		internal void DrawOnGraphics(Graphics g, Size size)
 		{
+            DrawOnGraphics(g, size, null);
+        }
+
+        internal void DrawOnGraphics(Graphics g, Size size, System.Drawing.Drawing2D.Matrix viewport)
+        {
+            if (viewport != null) g.Transform = viewport;
 			if (!mRange.MovingRange.ValidRange) return;
 
 			GrblCommand.StatePositionBuilder spb = new GrblCommand.StatePositionBuilder();
@@ -1352,7 +1358,8 @@ namespace LaserGRBL
 			float zoom = scaleRange.Width > 0 && scaleRange.Height > 0 ? Math.Min((float)size.Width / (float)scaleRange.Width, (float)size.Height / (float)scaleRange.Height) * 0.95f : 1;
 
 
-			ScaleAndPosition(g, size, scaleRange, zoom);
+            if (viewport == null) ScaleAndPosition(g, size, scaleRange, zoom);
+            else { var m = viewport.Elements; zoom = (float)Math.Sqrt(m[0]*m[0] + m[1]*m[1]); }
 			DrawJobPreview(g, spb, zoom);
 			DrawJobRange(g, size, zoom);
 

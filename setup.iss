@@ -2,7 +2,8 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "FadeGRBL"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion GetStringFileInfo("LaserGRBL\bin\Release\LaserGRBL.exe", "ProductVersion")
+#define MyAppFileVersion GetStringFileInfo("LaserGRBL\bin\Release\LaserGRBL.exe", "FileVersion")
 #define MyAppPublisher "FadeGRBL"
 #define MyAppURL "https://lasergrbl.com"
 #define MyAppExeName "LaserGRBL.exe"
@@ -14,6 +15,7 @@
 AppId={{4BF69C31-8363-4935-9804-CCDD623E7C1F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+VersionInfoVersion={#MyAppFileVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -23,7 +25,7 @@ DefaultDirName={pf}\{#MyAppName}
 DisableDirPage=no
 DisableProgramGroupPage=yes
 OutputDir=.\
-OutputBaseFilename=FadeGRBL-1.0.0-Setup
+OutputBaseFilename=FadeGRBL-{#MyAppVersion}-Setup
 Compression=zip
 SolidCompression=no
 InternalCompressLevel=ultra64

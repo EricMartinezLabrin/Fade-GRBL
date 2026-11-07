@@ -189,6 +189,8 @@ namespace LaserGRBL.Icons
             {
                 ctrl.Disposed += ControlDisposed;
             }
+            else if (control is ToolStripItem stripItem)
+                stripItem.Disposed += (s, e) => mControls.Remove(control);
         }
 
         // prepare button
@@ -217,6 +219,13 @@ namespace LaserGRBL.Icons
 
         // prepare button
         public static void PrepareButton(GrblButton button, string resourceName, Size size)
+        {
+            button.Image = LoadImage(resourceName, size);
+            AddControl(button);
+        }
+
+        // prepare toolbar button
+        public static void PrepareButton(ToolStripButton button, string resourceName, Size size)
         {
             button.Image = LoadImage(resourceName, size);
             AddControl(button);
@@ -267,6 +276,8 @@ namespace LaserGRBL.Icons
                 {
                     item.Image = ReloadLoadImage(item.Image);
                 }
+                else if (control is ToolStripButton stripButton)
+                    stripButton.Image = ReloadLoadImage(stripButton.Image);
             }
         }
 

@@ -109,7 +109,7 @@ Orden visual de izquierda a derecha: **conexión y máquina → lienzo → capas
 - Encabezado compacto: marca, nombre del proyecto y estado de conexión. Evitar un banner de presentación.
 - Menú convencional para archivo, edición, vista y ayuda. Barra de herramientas debajo con acciones agrupadas y separadores discretos.
 - Mantener «Abrir», «Guardar» e «Iniciar» identificables. En ejecución, dar prioridad a «Pausar», «Reanudar» y «Detener».
-- Herramientas del dibujo en un solo nivel: selección de capas/objetos, copiar, pegar, duplicar y dimensiones. Desbordamiento accesible cuando falte ancho.
+- Herramientas del dibujo: selección de capas/objetos, deshacer/rehacer, cortar/copiar/pegar/duplicar, agrupación, formas, texto y dimensiones. Usar dos filas compactas y desbordamiento accesible cuando falte ancho; mantener «Agregar objeto» y modos de selección visibles.
 
 ### Lienzo
 
@@ -117,10 +117,13 @@ Orden visual de izquierda a derecha: **conexión y máquina → lienzo → capas
 - Tema claro: fondo blanco, cuadrícula menor `#EDF0F4`, mayor `#D6DAE1` y reglas con `TextSecondary`.
 - Tema oscuro: fondo `#181C22`, cuadrícula menor `#242B34`, mayor `#303741` y reglas con `TextSecondary`.
 - Cuadrícula secundaria tenue y opcional; límites de trabajo claramente identificables. Los textos de medidas deben seguir siendo legibles.
-- Conservar el color real de cada capa. La selección añade contorno ámbar con base contrastante, patrón y tiradores; no reemplaza el color de corte.
+- Conservar el color real de cada capa. La selección muestra contorno azul/cian contrastante para la geometría y marco discontinuo con tiradores ámbar, tanto en modo Objetos como Capas; no modifica el color de corte.
 - Diferenciar movimiento de traslado y corte mediante trazo discontinuo/continuo, además de tono. No confundir trayectoria enviada con corte físicamente terminado.
 - Tiradores de tamaño de al menos 10 unidades, con zona de interacción mayor que el dibujo del tirador.
 - Ancho/alto y bloqueo de proporción permanecen disponibles junto al lienzo. Arrastrar y escribir medidas deben producir resultados coherentes.
+- Arrastrar selector hacia abajo exige encerrar geometría completa; hacia arriba selecciona geometría tocada. Dirección horizontal no cambia modo. Distinguir ambos mediante borde continuo/discontinuo y texto; Ctrl añade y Escape restaura selección anterior.
+- Desplazar vista arrastrando con botón central presionado. Conservar vista al recompilar o deshacer; navegación no modifica documento ni historial.
+- «Alinear» usa mesa configurada como referencia para mover selección como bloque, o último elemento seleccionado como referencia fija. Mostrar indicador y nombre de referencia; grupos y texto permanecen como unidades.
 
 ### Capas y propiedades
 
@@ -164,7 +167,7 @@ Orden visual de izquierda a derecha: **conexión y máquina → lienzo → capas
 | Estado vacío | Instrucción útil: «Abre un SVG o una imagen para comenzar», con acción «Abrir archivo». |
 
 - Usar una sola familia de iconos, preferentemente la ya integrada mediante `IconsMgr`; evitar mezclar emoji, iconos de distinto grosor y dibujos decorativos.
-- Texto visible para acciones críticas. Los atajos aparecen en tooltip o menú: `Ctrl+C`, `Ctrl+V`, `Ctrl+D` y `Ctrl+A`.
+- Texto visible para acciones críticas. Los atajos aparecen en tooltip o menú: `Ctrl+Z`, `Ctrl+Shift+Z`, `Ctrl+X`, `Ctrl+C`, `Ctrl+V`, `Ctrl+D`, `Ctrl+A`, `Ctrl+G` y `Ctrl+Shift+G`.
 - Los campos de texto conservan sus atajos normales; copiar texto no debe duplicar objetos ni activar la máquina.
 - Recorrido de tabulación coherente, foco visible, etiquetas accesibles y operación por teclado.
 - Hover y presión cambian tono; no desplazan ni redimensionan controles. Evitar animaciones continuas, parpadeo y transiciones que retrasen una acción de máquina.
@@ -201,7 +204,7 @@ La implementación debe respetar **WinForms y .NET Framework 4.0**, así como la
 - [ ] Botones ámbar con texto grafito; foco, campos y estados mantienen contraste verificable.
 - [ ] Temas claro y oscuro sin textos invisibles, iconos perdidos ni fondos de controles ajenos al tema.
 - [ ] Selección distinguible sobre capas ámbar, blancas y negras, sin modificar sus colores reales.
-- [ ] «Visible» y «Salida» claramente diferenciados; copias mantienen salida desactivada según el flujo actual.
+- [ ] «Visible» y «Salida» claramente diferenciados. Copias vectoriales se fusionan por color y comparten ajustes y salida de capa destino; copias raster mantienen capa independiente con salida desactivada.
 - [ ] Se pueden redimensionar paneles, editar medidas, seleccionar varios elementos y operar con teclado.
 - [ ] Texto español sin caracteres corruptos; etiquetas, unidades y cifras completas.
 - [ ] Sin parpadeo ni saltos repetidos de tamaño durante progreso, pausa y reanudación.
@@ -227,3 +230,12 @@ powershell.exe -NoProfile -File scripts\Render-FadeDesign.ps1
 ```
 
 El harness utiliza GDI, un documento de muestra y una ventana que omite el arranque normal: no conecta dispositivos ni inicia trabajos. Genera capturas claras y oscuras en `LaserGRBL.Tests/TestResults/design/`, en 1024 × 768, 1280 × 800 y 1920 × 1080, junto con los diálogos de color, pasadas, parámetros y reanudación. Requiere Windows PowerShell con .NET Framework; el renderer GDI existente utiliza `Thread.Abort`, no disponible en el runtime moderno del proyecto de pruebas. Las capturas complementan las pruebas y no sustituyen revisar DPI alto, interacción en una sesión normal o un corte físico.
+
+
+### Edición directa y transformaciones
+
+- Escena editable inmediata desde documento en GDI y OpenGL; trayectorias compiladas durante ejecución.
+- Texto sobre lienzo: clic escribe, doble clic edita, Enter añade línea, Ctrl+Enter o clic fuera confirma, Escape restaura. Fuente, estilo, tamaño y alineación en barra contextual; entrada nativa con selección y cursor transformados.
+- Manejadores cuadrados estiran; círculo exterior gira; flechas laterales inclinan. Pivote movible con nueve anclajes; Shift ajusta giro a 15°. Ángulo individual absoluto; giro múltiple incremental.
+- Líneas con extremos arrastrables, longitud y ángulo numéricos. Cada gesto o sesión de texto confirmada equivale a un paso de historial.
+- Transformaciones afines compartidas por selección, escena y corte. Proyectos v4 con lectura v2/v3/v4. Aplicación 1.1.0.

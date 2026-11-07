@@ -128,6 +128,11 @@ namespace LaserGRBL.Tests.Layering
                     var session = new JobExecutionSession(new GrblCommand[0], document, 1); session.SetState(state);
                     typeof(GrblCore).GetProperty("JobSession").SetValue(core, session);
                     var controller = core.LayerController; var layer = document.Layers[0];
+                    controller.History.Reset(document);
+                    var historic = document.Clone(); historic.Layers[0].TranslateX = 99;
+                    controller.History.Commit(historic, new CanvasSelectionState());
+                    Assert.True(controller.History.CanUndo); Assert.False(controller.CanUndo); Assert.False(controller.CanRedo);
+                    var unchanged = CanvasHistory.Key(document);
                     controller.CopyLayers(new[] { layer });
                     Assert.True(controller.Clipboard.HasContent);
                     Assert.Empty(controller.Paste()); Assert.Empty(controller.DuplicateLayers(new[] { layer }));
@@ -136,6 +141,16 @@ namespace LaserGRBL.Tests.Layering
                     controller.CopyObjects(objects); Assert.True(controller.Clipboard.ContainsObjects);
                     Assert.Empty(controller.DuplicateObjects(objects)); Assert.Single(document.Layers);
                     controller.RemoveLayers(new[] { layer }); controller.Remove(layer);
+                    controller.CutLayers(new[] { layer }); controller.CutObjects(objects);
+                    controller.SetColor(layer, Color.Green); controller.Group(new[] { layer }, objects, true); controller.Ungroup(new[] { layer }, objects, true);
+                    controller.ConvertText(objects); controller.DeleteObjects(objects); controller.Undo(); controller.Redo();
+                    controller.MoveTo(layer, 0); Assert.Null(controller.AddLayer());
+                    controller.NewDocument(); controller.Load("nonexistent.lps"); controller.ImportSvg("nonexistent.svg", true);
+                    controller.CaptureRasterImport("nonexistent.png", true, 0);
+                    Assert.False(controller.ReprocessRaster(layer));
+                    Assert.Null(controller.InsertObject(CanvasObjects.Shape(CanvasShape.Line, PointF.Empty, new PointF(1, 1)), layer));
+                    Assert.False(controller.Align(CanvasAlignmentAction.Center, true));
+                    Assert.Equal(unchanged, CanvasHistory.Key(document));
                     Assert.Single(document.Layers);
                     Assert.False(document.IsDirty);
                 }
@@ -155,6 +170,7 @@ namespace LaserGRBL.Tests.Layering
                     var first = document.Layers[0]; var remaining = first.Clone(true); var last = first.Clone(true);
                     document.Layers.Add(remaining); document.Layers.Add(last); document.NormalizeOrder();
                     typeof(LayerDocumentController).GetProperty("Document").SetValue(controller, document);
+                    controller.History.Reset(document);
                     int changes = 0; controller.DocumentChanged += () => changes++;
                     try
                     {
@@ -184,10 +200,12 @@ namespace LaserGRBL.Tests.Layering
                     try
                     {
                         var copy = controller.DuplicateLayers(new[] { original }).Single();
-                        Assert.Equal(1, changes); Assert.Equal(5, copy.TranslateX); Assert.Equal(17, copy.PowerPercent);
-                        Assert.False(copy.OutputEnabled); Assert.False(controller.IsCompilationCurrent);
+                        Assert.Equal(1, changes); Assert.Same(original, copy); Assert.Equal(17, copy.PowerPercent);
+                        Assert.True(copy.OutputEnabled); Assert.False(controller.IsCompilationCurrent);
+                        Assert.Equal(5, copy.VectorItems[1].Paths[0].Points[0].X);
                         var paste = controller.Clipboard.Paste(document, false).Single();
-                        Assert.Equal(5, paste.TranslateX); Assert.Equal(100, paste.PowerPercent);
+                        Assert.Same(original, paste); Assert.Equal(17, paste.PowerPercent);
+                        Assert.Equal(5, paste.VectorItems[2].Paths[0].Points[0].X);
                     }
                     finally { controller.ExitLayeredMode(); } // Cancel outstanding compile when tearing down the document.
                 }

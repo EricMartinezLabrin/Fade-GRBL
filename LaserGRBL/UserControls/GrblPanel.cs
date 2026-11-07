@@ -31,6 +31,7 @@ namespace LaserGRBL.UserControls
 		public GrblPanel()
 		{
 			InitializeComponent();
+            InitializeNavigation();
 			Settings.CurrentGraphicMode = Settings.GraphicMode.GDI;
 			GrblPanel3D.CurrentVendor = "LaserGRBL";
 			GrblPanel3D.CurrentRenderer = "Legacy Preview";
@@ -63,8 +64,15 @@ namespace LaserGRBL.UserControls
 		}
 
 		bool forcez = false;
+        private readonly Layering.CanvasScene editableScene = new Layering.CanvasScene();
 		protected override void OnPaint(PaintEventArgs e)
 		{
+            if(mLayerEditing && Core != null && Core.LayerController.IsLayered && !Core.JobEditingLocked)
+            {
+                editableScene.Draw(e.Graphics,Core.LayerController.Document,MachineToClient,ClientToMachine,ClientSize);
+                DrawSelection(e.Graphics); DrawCanvasOverlay(e.Graphics); base.OnPaint(e); return;
+            }
+
 			try
 			{
 				if (mBitmap != null)
@@ -118,6 +126,7 @@ namespace LaserGRBL.UserControls
 				}
 
 				DrawSelection(e.Graphics);
+                DrawCanvasOverlay(e.Graphics);
 			}
 			catch (Exception ex)
 			{
@@ -138,9 +147,12 @@ namespace LaserGRBL.UserControls
 		public void SetCore(GrblCore core)
 		{
 			Core = core;
+            Core.LayerController.VisualChanged += Invalidate;
+            Disposed += (s,e) => { Core.LayerController.VisualChanged -= Invalidate; editableScene.Dispose(); };
 			Core.OnFileLoading += OnFileLoading;
 			Core.OnFileLoaded += OnFileLoaded;
 			Core.OnPreviewChanged += RecreateBMP;
+            Core.OnAutoSizeDrawing += c => { ResetViewport(); awaitingDocumentPreview = false; RecreateBMP(); };
 		}
 
 		void OnFileLoading(long elapsed, string filename)
@@ -150,6 +162,7 @@ namespace LaserGRBL.UserControls
 
 		void OnFileLoaded(long elapsed, string filename)
 		{
+            awaitingDocumentPreview = false;
 			RecreateBMP();
 		}
 
@@ -187,6 +200,7 @@ namespace LaserGRBL.UserControls
 					return;
 
 				System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(wSize.Width, wSize.Height);
+                int viewRevision = viewport.Revision;
 				using (System.Drawing.Graphics g = Graphics.FromImage(bmp))
 				{
 					g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -194,10 +208,16 @@ namespace LaserGRBL.UserControls
 					g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 					g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-					if (Core != null /*&& Core.HasProgram*/)
-						Core.PreviewFile.DrawOnGraphics(g, wSize);
-
-					mLastMatrix = g.Transform;
+                    using (var view = viewport.Snapshot() ?? (mLayerEditing && (Core == null || Core.PreviewFile.Commands.Count == 0) ? EmptyViewport() : null))
+                    {
+                        if (Core != null) Core.PreviewFile.DrawOnGraphics(g, wSize, view);
+                        else if (view != null) g.Transform = view;
+                    }
+                    using (var rendered = g.Transform)
+                    {
+                        if (!viewport.Accept(rendered, viewRevision, mLayerEditing && !awaitingDocumentPreview)) { bmp.Dispose(); return; }
+                        mLastMatrix = rendered.Clone();
+                    }
 				}
 
 				AssignBMP(bmp);
@@ -214,6 +234,7 @@ namespace LaserGRBL.UserControls
 
 		public PointF MachineToDraw(PointF p)
 		{
+            PointF transformed; if (viewport.TryTransform(p, false, out transformed)) return transformed;
 			if (mLastMatrix == null)
 				return p;
 
@@ -224,6 +245,7 @@ namespace LaserGRBL.UserControls
 
 		public PointF DrawToMachine(PointF p)
 		{
+            PointF transformed; if (viewport.TryTransform(p, true, out transformed)) return transformed;
 			if (mLastMatrix == null || !mLastMatrix.IsInvertible)
 				return p;
 
@@ -236,8 +258,22 @@ namespace LaserGRBL.UserControls
 			return pa[0];
 		}
 
-		public PointF MachineToClient(PointF point) { return MachineToDraw(point); }
-		public PointF ClientToMachine(PointF point) { return DrawToMachine(point); }
+        // A new drawing needs a metric viewport before its first G-code render.
+        // Keep this fallback confined to editing; legacy machine jogging is unchanged.
+        private float EmptyEditorScale { get { return Math.Max(1, Math.Min(ClientSize.Width - 40, ClientSize.Height - 40)) / 100f; } }
+        private bool UseEmptyEditorViewport { get { return mLayerEditing && (mLastMatrix == null || (mLastMatrix.IsIdentity && (Core == null || Core.PreviewFile.Commands.Count == 0))); } }
+        public PointF MachineToClient(PointF point)
+        {
+            PointF transformed; if (viewport.TryTransform(point, false, out transformed)) return transformed;
+            if (UseEmptyEditorViewport) return new PointF(20 + point.X * EmptyEditorScale, ClientSize.Height - 20 - point.Y * EmptyEditorScale);
+            return MachineToDraw(point);
+        }
+        public PointF ClientToMachine(PointF point)
+        {
+            PointF transformed; if (viewport.TryTransform(point, true, out transformed)) return transformed;
+            if (UseEmptyEditorViewport) return new PointF((point.X - 20) / EmptyEditorScale, (ClientSize.Height - 20 - point.Y) / EmptyEditorScale);
+            return DrawToMachine(point);
+        }
 		public void SetSelectionBounds(RectangleF? bounds) { mSelectionBounds = bounds; Invalidate(); }
 		public void SetSelectionContours(System.Collections.Generic.IEnumerable<Layering.VectorPath> paths) { mSelectionContours = System.Linq.Enumerable.ToArray(paths); Invalidate(); }
 		public void SetLayerEditing(bool enabled) { mLayerEditing = enabled; }
@@ -247,8 +283,8 @@ namespace LaserGRBL.UserControls
 			Layering.LayerGeometry.DrawContours(graphics, mSelectionContours, MachineToClient);
 			if (!mSelectionBounds.HasValue) return;
 			RectangleF bounds = mSelectionBounds.Value;
-			PointF first = MachineToDraw(new PointF(bounds.Left, bounds.Top));
-			PointF second = MachineToDraw(new PointF(bounds.Right, bounds.Bottom));
+            PointF first = MachineToClient(new PointF(bounds.Left, bounds.Top));
+            PointF second = MachineToClient(new PointF(bounds.Right, bounds.Bottom));
 			RectangleF screen = RectangleF.FromLTRB(Math.Min(first.X, second.X), Math.Min(first.Y, second.Y), Math.Max(first.X, second.X), Math.Max(first.Y, second.Y));
 			Layering.LayerGeometry.DrawSelectionBounds(graphics, screen);
 		}
@@ -285,7 +321,7 @@ namespace LaserGRBL.UserControls
 
 		private void GrblPanel_MouseDoubleClick(object sender, MouseEventArgs e)
 		{
-			if (!mLayerEditing && Settings.GetObject("Click N Jog", true))
+			if (!mLayerEditing && (e.Button == MouseButtons.Left || e.Button == MouseButtons.Right) && Settings.GetObject("Click N Jog", true))
 			{
 				PointF coord = DrawToMachine(new PointF(e.X, e.Y));
 				Core.JogToPosition(coord, e.Button == MouseButtons.Right);

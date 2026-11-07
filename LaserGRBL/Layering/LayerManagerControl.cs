@@ -20,7 +20,7 @@ namespace LaserGRBL.Layering
                     DeleteCommand(); return true;
                 }
                 if (!IsCurrentCellInEditMode && ClipboardCommand != null &&
-                    (keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.V) || keyData == (Keys.Control | Keys.D)))
+                    (keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.V) || keyData == (Keys.Control | Keys.D) || keyData == (Keys.Control | Keys.X) || keyData == (Keys.Control | Keys.Z) || keyData == (Keys.Control | Keys.Shift | Keys.Z) || keyData == (Keys.Control | Keys.G) || keyData == (Keys.Control | Keys.Shift | Keys.G)))
                 {
                     ClipboardCommand(keyData); return true;
                 }
@@ -84,6 +84,7 @@ namespace LaserGRBL.Layering
             tools.Dock = DockStyle.Top; tools.GripStyle = ToolStripGripStyle.Hidden;
             AddButton("+", LayerText.Get("NewLayer"), (s, e) => { if (CanEdit()) SelectLayer(core.LayerController.AddLayer()); });
             AddButton(LayerText.Get("Copy"), "Ctrl+C", (s, e) => CopySelection());
+            AddButton(LayerText.Get("Cut"), "Ctrl+X", (s, e) => { if (CanEdit()) core.LayerController.CutLayers(SelectedLayers()); });
             AddButton(LayerText.Get("Paste"), "Ctrl+V", (s, e) => PasteSelection(false));
             AddButton(LayerText.Get("Duplicate"), "Ctrl+D", (s, e) => PasteSelection(true));
             AddButton(LayerText.Get("DeleteLayer"), LayerText.Get("DeleteLayer") + " (Del)", (s, e) => DeleteSelectedLayers());
@@ -104,6 +105,11 @@ namespace LaserGRBL.Layering
             grid.ClipboardCommand = keys =>
             {
                 if (keys == (Keys.Control | Keys.C)) CopySelection();
+                else if (keys == (Keys.Control | Keys.X)) { if (CanEdit()) core.LayerController.CutLayers(SelectedLayers()); }
+                else if (keys == (Keys.Control | Keys.Z)) core?.LayerController.Undo();
+                else if (keys == (Keys.Control | Keys.Shift | Keys.Z)) core?.LayerController.Redo();
+                else if (keys == (Keys.Control | Keys.G)) { if (CanEdit()) core.LayerController.Group(SelectedLayers(), new VectorSelection[0], false); }
+                else if (keys == (Keys.Control | Keys.Shift | Keys.G)) { if (CanEdit()) core.LayerController.Ungroup(SelectedLayers(), new VectorSelection[0], false); }
                 else PasteSelection(keys == (Keys.Control | Keys.D));
                 UpdateJobLock();
             };
@@ -113,6 +119,7 @@ namespace LaserGRBL.Layering
             grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Output", HeaderText = LayerText.Get("DesignOutput"), Width = 56, ToolTipText = LayerText.Get("DesignOutputHint") });
             grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Visible", HeaderText = LayerText.Get("DesignVisible"), Width = 56, ToolTipText = LayerText.Get("DesignVisibleHint") });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LayerName", HeaderText = LayerText.Get("DesignLayer"), Width = 100 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ColorCode", HeaderText = LayerText.Get("ColorCode"), Width = 86, ReadOnly = true });
             grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Mode", HeaderText = LayerText.Get("DesignMode"), Width = 90, DropDownWidth = 180, FlatStyle = FlatStyle.Flat });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Speed", HeaderText = "mm/min", Width = 58 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Power", HeaderText = "%", Width = 38 });
@@ -120,10 +127,12 @@ namespace LaserGRBL.Layering
             foreach (string name in new[] { "Speed", "Power", "Passes" }) grid.Columns[name].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             grid.CellValueChanged += GridCellValueChanged;
             grid.SelectionChanged += (s, e) => RaiseSelectionChanged();
+            grid.CurrentCellChanged += (s, e) => RaiseSelectionChanged();
             grid.CurrentCellDirtyStateChanged += (s, e) => { if (grid.IsCurrentCellDirty && (grid.CurrentCell is DataGridViewCheckBoxCell || grid.CurrentCell is DataGridViewComboBoxCell)) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
             grid.CellValidating += ValidateCell;
             grid.CellEndEdit += (s, e) => { if (refreshPending) BeginInvoke((MethodInvoker)RefreshRows); };
-            grid.RowHeaderMouseDoubleClick += ChangeColor; grid.DataError += (s, e) => { e.ThrowException = false; };
+            grid.CellClick += (s, e) => { if (e.ColumnIndex == -1 || (e.ColumnIndex >= 0 && grid.Columns[e.ColumnIndex].Name == "ColorCode")) ChangeColor(s, e); };
+            grid.DataError += (s, e) => { e.ThrowException = false; };
             grid.MouseDown += (s, e) => dragStart = e.Location;
             grid.MouseMove += GridMouseMove;
             grid.DragOver += (s, e) => e.Effect = e.Data.GetDataPresent(typeof(LaserLayer)) ? DragDropEffects.Move : DragDropEffects.None;
@@ -146,6 +155,10 @@ namespace LaserGRBL.Layering
             {
                 DataGridViewRow row = grid.Rows[grid.Rows.Add()]; row.Tag = layer;
                 row.Cells["Output"].Value = layer.OutputEnabled; row.Cells["Visible"].Value = layer.Visible; row.Cells["LayerName"].Value = layer.Name;
+                row.Cells["ColorCode"].Value = string.Format("#{0:X2}{1:X2}{2:X2}", layer.Color.R, layer.Color.G, layer.Color.B);
+                row.Cells["ColorCode"].ToolTipText = LayerText.Get("ChangeColor");
+                var group = core.LayerController.Document.Groups.FirstOrDefault(g => g.Id == CanvasGroups.Root(core.LayerController.Document, layer.GroupId));
+                if (group != null) row.Cells["LayerName"].ToolTipText = string.Format(LayerText.Get("GroupMembership"), group.Name);
                 DataGridViewComboBoxCell modeCell = (DataGridViewComboBoxCell)row.Cells["Mode"];
                 LayerMode[] modes = layer.ContentKind == LayerContentKind.Raster ? new[] { LayerMode.Image } : new[] { LayerMode.Line, LayerMode.Fill, LayerMode.OffsetFill };
                 modeCell.DisplayMember = "Caption"; modeCell.ValueMember = "Value";
@@ -182,6 +195,7 @@ namespace LaserGRBL.Layering
                 layer.OutputEnabled = Convert.ToBoolean(row.Cells["Output"].Value); layer.Visible = Convert.ToBoolean(row.Cells["Visible"].Value);
                 layer.Name = Convert.ToString(row.Cells["LayerName"].Value); layer.Mode = (LayerMode)row.Cells["Mode"].Value;
                 layer.SpeedMmPerMinute = Convert.ToInt32(row.Cells["Speed"].Value); layer.PowerPercent = Convert.ToDouble(row.Cells["Power"].Value); layer.Passes = Convert.ToInt32(row.Cells["Passes"].Value);
+                core.LayerController.RecordCellEdit();
                 // Never rebuild rows inside DataGridView's commit/end-edit event stack.
                 BeginInvoke((MethodInvoker)(() => core.LayerController.Changed()));
             }
@@ -229,8 +243,16 @@ namespace LaserGRBL.Layering
                 else item.Enabled = layered && !locked;
             }
         }
-        public IList<LaserLayer> SelectedLayers() { return grid.SelectedRows.Cast<DataGridViewRow>().Select(row => row.Tag as LaserLayer).Where(layer => layer != null).OrderBy(layer => layer.Order).ToList(); }
+        public IList<LaserLayer> SelectedLayers()
+        {
+            var selected = grid.SelectedRows.Cast<DataGridViewRow>().Select(row => row.Tag as LaserLayer).Where(layer => layer != null).OrderBy(layer => layer.Order).ToList();
+            if (core == null || core.LayerController.Document == null) return selected;
+            var document = core.LayerController.Document;
+            var roots = new HashSet<Guid>(selected.Select(l => CanvasGroups.Root(document, l.GroupId)).Where(id => id != Guid.Empty));
+            return document.Layers.Where(l => selected.Contains(l) || roots.Contains(CanvasGroups.Root(document, l.GroupId))).ToList();
+        }
         public LaserLayer SelectedLayer() { return SelectedLayers().FirstOrDefault(); }
+        public LaserLayer ActiveLayer { get { return grid.CurrentRow == null ? null : grid.CurrentRow.Tag as LaserLayer; } }
         public void SelectAllLayers()
         {
             if (core == null || core.LayerController.Document == null)
@@ -249,6 +271,12 @@ namespace LaserGRBL.Layering
                 if (layer != null && ids.Contains(layer.Id)) row.Selected = true;
             }
             if (grid.SelectedRows.Count > 0) grid.CurrentCell = grid.SelectedRows[0].Cells["LayerName"];
+            // Changing CurrentCell can clear other selected rows; restore the full set.
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                var layer = row.Tag as LaserLayer;
+                row.Selected = layer != null && ids.Contains(layer.Id);
+            }
             refreshing = false;
             RaiseSelectionChanged();
         }
@@ -284,7 +312,7 @@ namespace LaserGRBL.Layering
             SelectLayer(layer);
         }
 
-        private void ChangeColor(object sender, DataGridViewCellMouseEventArgs e)
+        private void ChangeColor(object sender, DataGridViewCellEventArgs e)
         {
             if (!CanEdit() || e.RowIndex < 0) return;
             LaserLayer layer = grid.Rows[e.RowIndex].Tag as LaserLayer; if (layer == null) return;
@@ -292,13 +320,8 @@ namespace LaserGRBL.Layering
             if (LayerColorPickerForm.TryChoose(this, layer.Color, out selectedColor))
             {
                 if (selectedColor.ToArgb() == layer.ColorArgb) return;
-                LaserLayer conflict = core.LayerController.Document.Layers.FirstOrDefault(l => l != layer && l.Color.ToArgb() == selectedColor.ToArgb());
-                if (conflict != null)
-                {
-                    if (conflict.ContentKind != layer.ContentKind || MessageBox.Show(LayerText.Get("MergeConfirm"), LayerText.Get("Layers"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
-                    if (layer.ContentKind != LayerContentKind.Vector) return; conflict.VectorItems.AddRange(layer.VectorItems); core.LayerController.Remove(layer);
-                }
-                else { layer.Color = selectedColor; core.LayerController.Changed(); }
+                core.LayerController.SetColor(layer, selectedColor);
+                SelectLayer(core.LayerController.Document.Layers.FirstOrDefault(l => l.Id == layer.Id) ?? core.LayerController.Document.FindByColor(selectedColor, layer.ContentKind));
             }
         }
 

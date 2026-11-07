@@ -62,7 +62,7 @@ namespace LaserGRBL
 
 					try
 					{
-						sb.AppendFormat("LaserGrbl v{0}", Program.CurrentVersion);
+                        sb.AppendFormat("FadeGRBL v{0}", Program.CurrentVersion.ToString(3));
 						sb.AppendLine();
 						sb.AppendFormat("{0} v{1}", Core?.Type, GrblCore.Configuration?.GrblVersion);
 						sb.AppendLine();

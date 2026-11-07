@@ -115,4 +115,68 @@
   <data name="DesignGenerate" xml:space="preserve"><value>Generar</value></data>
   <data name="DesignHelp" xml:space="preserve"><value>Ayuda</value></data>
   <data name="DesignEmpty" xml:space="preserve"><value>Abre un SVG o una imagen para comenzar</value></data>
+  <data name="Undo" xml:space="preserve"><value>Deshacer</value></data>
+  <data name="Redo" xml:space="preserve"><value>Rehacer</value></data>
+  <data name="Cut" xml:space="preserve"><value>Cortar</value></data>
+  <data name="Group" xml:space="preserve"><value>Agrupar</value></data>
+  <data name="Ungroup" xml:space="preserve"><value>Desagrupar</value></data>
+  <data name="ShapeRectangle" xml:space="preserve"><value>Rectángulo</value></data>
+  <data name="ShapeEllipse" xml:space="preserve"><value>Elipse</value></data>
+  <data name="ShapeLine" xml:space="preserve"><value>Línea</value></data>
+  <data name="TextTool" xml:space="preserve"><value>Texto</value></data>
+  <data name="EditText" xml:space="preserve"><value>Editar texto</value></data>
+  <data name="ConvertText" xml:space="preserve"><value>Convertir a contornos</value></data>
+  <data name="TextContent" xml:space="preserve"><value>Palabras</value></data>
+  <data name="TextFont" xml:space="preserve"><value>Fuente</value></data>
+  <data name="TextStyle" xml:space="preserve"><value>Estilo</value></data>
+  <data name="TextSize" xml:space="preserve"><value>Tamaño (mm)</value></data>
+  <data name="TextAlignment" xml:space="preserve"><value>Alineación</value></data>
+  <data name="AlignLeft" xml:space="preserve"><value>Izquierda</value></data>
+  <data name="AlignCenter" xml:space="preserve"><value>Centro</value></data>
+  <data name="AlignRight" xml:space="preserve"><value>Derecha</value></data>
+  <data name="FontStyle0" xml:space="preserve"><value>Normal</value></data>
+  <data name="FontStyle1" xml:space="preserve"><value>Negrita</value></data>
+  <data name="FontStyle2" xml:space="preserve"><value>Cursiva</value></data>
+  <data name="FontStyle3" xml:space="preserve"><value>Negrita cursiva</value></data>
+  <data name="InvalidText" xml:space="preserve"><value>Escribe texto y elige una fuente instalada y un tamaño válido.</value></data>
+  <data name="InvalidFontStyle" xml:space="preserve"><value>La fuente no admite el estilo seleccionado.</value></data>
+  <data name="MissingFont" xml:space="preserve"><value>Fuente no disponible: {0}. Se conservan los contornos guardados. Elige una fuente explícitamente para editar el texto.</value></data>
+  <data name="ColorCode" xml:space="preserve"><value>Color</value></data>
+  <data name="GroupMembership" xml:space="preserve"><value>Grupo: {0}</value></data>
+  <data name="AddObject" xml:space="preserve"><value>Agregar objeto</value></data>
+  <data name="Apply" xml:space="preserve"><value>Aplicar</value></data>
+  <data name="GroupName" xml:space="preserve"><value>Grupo</value></data>
+  <data name="Align" xml:space="preserve"><value>Alinear</value></data>
+  <data name="AlignToTable" xml:space="preserve"><value>Referencia: área de máquina</value></data>
+  <data name="AlignToReference" xml:space="preserve"><value>Referencia: último seleccionado</value></data>
+  <data name="LayoutAlignLeft" xml:space="preserve"><value>Borde izquierdo</value></data>
+  <data name="LayoutAlignHorizontalCenter" xml:space="preserve"><value>Centro horizontal</value></data>
+  <data name="LayoutAlignRight" xml:space="preserve"><value>Borde derecho</value></data>
+  <data name="LayoutAlignTop" xml:space="preserve"><value>Borde superior</value></data>
+  <data name="LayoutAlignVerticalCenter" xml:space="preserve"><value>Centro vertical</value></data>
+  <data name="LayoutAlignBottom" xml:space="preserve"><value>Borde inferior</value></data>
+  <data name="LayoutAlignCenter" xml:space="preserve"><value>Centrar en ambos ejes</value></data>
+  <data name="SelectCrossing" xml:space="preserve"><value>Cruzar (hacia arriba)</value></data>
+  <data name="SelectEnclosed" xml:space="preserve"><value>Encerrar (hacia abajo)</value></data>
+  <data name="Pivot" xml:space="preserve"><value>Pivote</value></data>
+  <data name="RotateSelection" xml:space="preserve"><value>Girar selección (°)</value></data>
+  <data name="ShearX" xml:space="preserve"><value>Inclinar X (°)</value></data>
+  <data name="ShearY" xml:space="preserve"><value>Inclinar Y (°)</value></data>
+  <data name="LineLength" xml:space="preserve"><value>Longitud (mm)</value></data>
+  <data name="ChooseMissingFont" xml:space="preserve"><value>Elige una fuente instalada para editar</value></data>
+  <data name="Style0" xml:space="preserve"><value>Normal</value></data>
+  <data name="Style1" xml:space="preserve"><value>Negrita</value></data>
+  <data name="Style2" xml:space="preserve"><value>Cursiva</value></data>
+  <data name="Style3" xml:space="preserve"><value>Negrita cursiva</value></data>
+  <data name="Pivot0" xml:space="preserve"><value>Superior izquierda</value></data>
+  <data name="Pivot1" xml:space="preserve"><value>Superior centro</value></data>
+  <data name="Pivot2" xml:space="preserve"><value>Superior derecha</value></data>
+  <data name="Pivot3" xml:space="preserve"><value>Centro izquierda</value></data>
+  <data name="Pivot4" xml:space="preserve"><value>Centro</value></data>
+  <data name="Pivot5" xml:space="preserve"><value>Centro derecha</value></data>
+  <data name="Pivot6" xml:space="preserve"><value>Inferior izquierda</value></data>
+  <data name="Pivot7" xml:space="preserve"><value>Inferior centro</value></data>
+  <data name="Pivot8" xml:space="preserve"><value>Inferior derecha</value></data>
+  <data name="FontFamily" xml:space="preserve"><value>Fuente</value></data>
+  <data name="FontStyle" xml:space="preserve"><value>Estilo</value></data>
 </root>

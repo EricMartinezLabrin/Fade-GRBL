@@ -25,24 +25,29 @@ namespace LaserGRBL.Layering
     [Serializable]
     public class VectorPath
     {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid GroupId { get; set; }
         public List<LaserPoint> Points { get; set; } = new List<LaserPoint>();
         public bool Closed { get; set; }
+        public AffineTransform Pose { get; set; } = new AffineTransform();
 
-        public VectorPath Clone()
+        public VectorPath Clone(bool preserveId = true)
         {
-            return new VectorPath { Closed = Closed, Points = Points.Select(p => p.Clone()).ToList() };
+            return new VectorPath { Id = preserveId ? Id : Guid.NewGuid(), GroupId = GroupId, Closed = Closed, Pose = Pose.Clone(), Points = Points.Select(p => p.Clone()).ToList() };
         }
     }
 
     [Serializable]
     public class VectorItem
     {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public TextObject Text { get; set; }
         public string SourceName { get; set; }
         public List<VectorPath> Paths { get; set; } = new List<VectorPath>();
 
-        public VectorItem Clone()
+        public VectorItem Clone(bool preserveId = true)
         {
-            return new VectorItem { SourceName = SourceName, Paths = Paths.Select(p => p.Clone()).ToList() };
+            return new VectorItem { Id = preserveId ? Id : Guid.NewGuid(), Text = Text == null ? null : Text.Clone(), SourceName = SourceName, Paths = Paths.Select(p => p.Clone(preserveId)).ToList() };
         }
     }
 
@@ -121,6 +126,7 @@ namespace LaserGRBL.Layering
     public class LaserLayer
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid GroupId { get; set; }
         public int Order { get; set; }
         public string Name { get; set; } = "Layer";
         public int ColorArgb { get; set; } = Color.Red.ToArgb();
@@ -131,6 +137,8 @@ namespace LaserGRBL.Layering
         public int SpeedMmPerMinute { get; set; } = 1000;
         public double PowerPercent { get; set; } = 100;
         public int Passes { get; set; } = 1;
+        public double CrossX { get; set; }
+        public double CrossY { get; set; }
         public double ScaleX { get; set; } = 1;
         public double ScaleY { get; set; } = 1;
         public double TranslateX { get; set; }
@@ -150,18 +158,19 @@ namespace LaserGRBL.Layering
         {
             return new LaserLayer
             {
-                Id = preserveId ? Id : Guid.NewGuid(), Order = Order, Name = Name, ColorArgb = ColorArgb,
+                Id = preserveId ? Id : Guid.NewGuid(), GroupId = GroupId, Order = Order, Name = Name, ColorArgb = ColorArgb,
                 Visible = Visible, OutputEnabled = OutputEnabled, Mode = Mode, ContentKind = ContentKind,
                 SpeedMmPerMinute = SpeedMmPerMinute, PowerPercent = PowerPercent, Passes = Passes,
-                ScaleX = ScaleX, ScaleY = ScaleY, TranslateX = TranslateX, TranslateY = TranslateY,
+                CrossX = CrossX, CrossY = CrossY, ScaleX = ScaleX, ScaleY = ScaleY, TranslateX = TranslateX, TranslateY = TranslateY,
                 FillSettings = FillSettings.Clone(),
-                VectorItems = includeContent ? VectorItems.Select(i => i.Clone()).ToList() : new List<VectorItem>(),
+                VectorItems = includeContent ? VectorItems.Select(i => i.Clone(preserveId)).ToList() : new List<VectorItem>(),
                 RasterItem = includeContent && RasterItem != null ? RasterItem.Clone() : null
             };
         }
 
         public string Validate()
         {
+            if (!AffineTransform.Layer(this).Valid) return "Invalid layer transform.";
             if (SpeedMmPerMinute < 1 || SpeedMmPerMinute > 100000) return "Speed must be between 1 and 100000 mm/min.";
             if (PowerPercent < 0 || PowerPercent > 100) return "Power must be between 0 and 100%.";
             if (Passes < 1 || Passes > 99) return "Passes must be between 1 and 99.";
@@ -177,7 +186,8 @@ namespace LaserGRBL.Layering
     public class LaserDocument
     {
         [XmlAttribute("version")]
-        public int Version { get; set; } = 2;
+        public int Version { get; set; } = 4;
+        public List<CanvasGroup> Groups { get; set; } = new List<CanvasGroup>();
         public JobPassOrder PassOrder { get; set; } = JobPassOrder.ByLayer;
         public List<LaserLayer> Layers { get; set; } = new List<LaserLayer>();
         [NonSerialized, XmlIgnore] public bool IsDirty;
@@ -197,6 +207,7 @@ namespace LaserGRBL.Layering
             return new LaserDocument
             {
                 Version = Version,
+                Groups = Groups.Select(g => g.Clone()).ToList(),
                 PassOrder = PassOrder,
                 Layers = Layers.Select(layer => layer.Clone(true, true)).ToList(),
                 IsDirty = IsDirty

@@ -74,8 +74,9 @@ namespace LaserGRBL
             if (dic == null)
                 dic = new System.Collections.Generic.Dictionary<string, object>();
 
-            PrevVersion = GetObject("Current LaserGRBL Version", new Version(0, 0, 0));
-            SetObject("Current LaserGRBL Version", Program.CurrentVersion);
+            // FadeGRBL has its own release sequence, independent of the upstream fork.
+            PrevVersion = GetObject("Current FadeGRBL Version", new Version(0, 0, 0));
+            SetObject("Current FadeGRBL Version", Program.CurrentVersion ?? typeof(Settings).Assembly.GetName().Version);
         }
 
         public static T GetObject<T>(string key, T defval)

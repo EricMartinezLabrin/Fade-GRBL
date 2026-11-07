@@ -66,6 +66,11 @@ namespace LaserGRBL.UserControls
 		private RectangleF? mSelectionBounds;
 		private Layering.VectorPath[] mSelectionContours = new Layering.VectorPath[0];
 		private bool mLayerEditing;
+        private bool middlePanning, fitNextFile = true;
+        private Cursor cursorBeforePan;
+        private RectangleF? selectionRectangle, referenceBounds;
+        private bool selectionCrossing;
+        public event Action ViewportChanged;
 
 		private Base.Mathematics.MobileDAverageCalculator FrameTime;
 		private Base.Mathematics.MobileDAverageCalculator SleepTime;
@@ -141,6 +146,8 @@ namespace LaserGRBL.UserControls
 			MouseDown += GrblSceneControl_MouseDown;
 			MouseMove += GrblSceneControl_MouseMove;
 			MouseUp += GrblSceneControl_MouseUp;
+            MouseCaptureChanged += (s, e) => { if (!Capture) StopMiddlePan(); };
+            LostFocus += (s, e) => StopMiddlePan();
 			MouseLeave += GrblSceneControl_MouseLeave;
 			Grbl3D.OnLoadingPercentageChange += Grbl3D_OnLoadingPercentageChange;
 			Resize += GrblPanel3D_Resize;
@@ -428,6 +435,7 @@ namespace LaserGRBL.UserControls
 			mCamera.Right = right;
 			mCamera.Bottom = bottom;
 			mCamera.Top = top;
+            ViewportChanged?.Invoke();
 			mGrid?.Invalidate();
 			// call control invalidate
 			RR.Set();
@@ -469,7 +477,7 @@ namespace LaserGRBL.UserControls
 
 		private void GrblPanel3D_DoubleClick(object sender, MouseEventArgs e)
 		{
-			if (!mLayerEditing && Settings.GetObject("Click N Jog", true) && mMouseWorldPosition != null)
+			if (!mLayerEditing && (e.Button == MouseButtons.Left || e.Button == MouseButtons.Right) && Settings.GetObject("Click N Jog", true) && mMouseWorldPosition != null)
 			{
 				Core.JogToPosition((PointF)mMouseWorldPosition, e.Button == MouseButtons.Right);
 			}
@@ -657,8 +665,15 @@ namespace LaserGRBL.UserControls
 		}
 
 		Tools.SimpleCrono FpsCrono;
+        private readonly Layering.CanvasScene editableScene = new Layering.CanvasScene();
 		protected override void OnPaint(PaintEventArgs e)
 		{
+            if(mLayerEditing && Core != null && Core.LayerController.IsLayered && !Core.JobEditingLocked)
+            {
+                editableScene.Draw(e.Graphics,Core.LayerController.Document,MachineToClient,ClientToMachine,ClientSize);
+                DrawSelection(e.Graphics); DrawCanvasOverlay(e.Graphics); base.OnPaint(e); return;
+            }
+
 			Exception OnPaintException = null;
 
 			if (FpsCrono != null) RefreshRate.EnqueueNewSample(FpsCrono.ElapsedTime.TotalMilliseconds); //compute time distance between two OnPaint
@@ -694,6 +709,7 @@ namespace LaserGRBL.UserControls
 				DrawException(e, "3.Init Complete");
 			else if (OpCounter == 4)
 				DrawException(e, "4.Draw Begin");
+            DrawCanvasOverlay(e.Graphics);
 		}
 
 		public PointF MachineToClient(PointF point)
@@ -713,6 +729,25 @@ namespace LaserGRBL.UserControls
 		public void SetSelectionBounds(RectangleF? bounds) { mSelectionBounds = bounds; Invalidate(); }
 		public void SetSelectionContours(System.Collections.Generic.IEnumerable<Layering.VectorPath> paths) { mSelectionContours = System.Linq.Enumerable.ToArray(paths); Invalidate(); }
 		public void SetLayerEditing(bool enabled) { mLayerEditing = enabled; }
+        public void SetSelectionRectangle(RectangleF? rectangle, bool crossing) { selectionRectangle = rectangle; selectionCrossing = crossing; Invalidate(); }
+        public void SetReferenceBounds(RectangleF? bounds) { referenceBounds = bounds; Invalidate(); }
+        public void ResetViewport() { StopMiddlePan(); fitNextFile = true; selectionRectangle = referenceBounds = null; AutoSizeDrawing(); }
+        private void DrawCanvasOverlay(Graphics graphics)
+        {
+            RectangleF? reference = null;
+            if (referenceBounds.HasValue)
+            {
+                var r = referenceBounds.Value;
+                reference = Layering.CanvasLayout.SelectionRectangle(MachineToClient(new PointF(r.Left, r.Top)), MachineToClient(new PointF(r.Right, r.Bottom)));
+            }
+            Layering.CanvasOverlay.Draw(graphics, selectionRectangle, selectionCrossing, reference);
+        }
+        private void StopMiddlePan() { if (!middlePanning) return; middlePanning = false; mLastMousePos = null; Capture = false; Cursor = cursorBeforePan ?? Cursors.Default; }
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (middlePanning && keyData == Keys.Escape) { StopMiddlePan(); return true; }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
 
 		private void DrawSelection(Graphics graphics)
 		{
@@ -929,6 +964,7 @@ namespace LaserGRBL.UserControls
 
 		private void GrblSceneControl_MouseLeave(object sender, EventArgs e)
 		{
+            if (middlePanning) return;
 			mLastMousePos = null;
 			mMouseWorldPosition = null;
 			mMousePos = null;
@@ -938,6 +974,8 @@ namespace LaserGRBL.UserControls
 
 		private void GrblSceneControl_MouseUp(object sender, MouseEventArgs e)
 		{
+            if (middlePanning && e.Button != MouseButtons.Middle) return;
+            if (e.Button == MouseButtons.Middle) StopMiddlePan();
             if (Core?.CrossCursor.Value == true) ShowCursor = true;
             Cursor.Current = Cursors.Default;
 			mLastMousePos = null;
@@ -948,7 +986,8 @@ namespace LaserGRBL.UserControls
         {
             mMousePos = null;
             Cursor.Current = Cursors.Cross;
-			mLastMousePos = mLayerEditing && e.Button == MouseButtons.Left ? (Point?)null : e.Location;
+            if (e.Button == MouseButtons.Middle) { middlePanning = true; Focus(); cursorBeforePan = Cursor; Capture = true; Cursor = Cursors.SizeAll; mLastMousePos = e.Location; }
+            else if (!middlePanning) mLastMousePos = null;
 			Invalidate();
         }
 
@@ -960,14 +999,12 @@ namespace LaserGRBL.UserControls
 			double yp = (Height - e.Y) / (double)Height * (mCamera.Top - mCamera.Bottom) + mCamera.Bottom;
 			mMouseWorldPosition = new PointF((float)xp, (float)yp);
             // if in drag
-			if (mLastMousePos != null && ((!mLayerEditing && e.Button == MouseButtons.Left) || (mLayerEditing && e.Button == MouseButtons.Middle)))
+			if (mLastMousePos != null && middlePanning)
 			{
 				Cursor.Current = Cursors.SizeAll;
 				Point lastPos = (Point)mLastMousePos;
-				double k = (mCamera.Right - mCamera.Left) / Width;
-				double dx = e.X - lastPos.X;
-				double dy = e.Y - lastPos.Y;
-				SetWorldPosition(mCamera.Left - dx * k, mCamera.Right - dx * k, mCamera.Bottom + dy * k, mCamera.Top + dy * k);
+                var delta = Layering.CanvasViewport.PanDelta(mCamera.Right - mCamera.Left, mCamera.Top - mCamera.Bottom, Width, Height, new Point(e.X-lastPos.X, e.Y-lastPos.Y));
+                SetWorldPosition(mCamera.Left - delta.X, mCamera.Right - delta.X, mCamera.Bottom + delta.Y, mCamera.Top + delta.Y);
 				mLastMousePos = e.Location;
 				mMousePos = null;
 			}
@@ -992,6 +1029,8 @@ namespace LaserGRBL.UserControls
 		public void SetCore(GrblCore core)
 		{
 			Core = core;
+            Core.LayerController.VisualChanged += Invalidate;
+            Disposed += (s,e) => { Core.LayerController.VisualChanged -= Invalidate; editableScene.Dispose(); };
             Core.OnFileLoading += OnFileLoading;
 			Core.OnFileLoaded += OnFileLoaded;
 			Core.OnPreviewChanged += OnPreviewChanged;
@@ -1073,7 +1112,9 @@ namespace LaserGRBL.UserControls
 		{
 			DisposeGrbl3D();
 			mReload = true;
-			AutoSizeDrawing();
+            if (Core == null || !Core.LayerController.IsLayered || fitNextFile) { AutoSizeDrawing(); fitNextFile = false; }
+            // Keeping the camera must not leave the GL thread asleep with the old scene.
+            RR.Set();
 		}
 		
 		public void AutoSizeDrawing()

@@ -858,10 +858,14 @@ namespace LaserGRBL
 		Keys mLastkeyData = Keys.None;
 		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
 		{
+            // Text editors own typing and editing shortcuts, including numeric keypad.
+            if (Layering.CanvasKeyboard.IsTextEditing(this))
+                return base.ProcessCmdKey(ref msg, keyData);
 			if (keyData != mLastkeyData)
 			{
 				mLastkeyData = keyData;
-				return Core.ManageHotKeys(this, keyData);
+                if (Core.ManageHotKeys(this, keyData)) return true;
+                return base.ProcessCmdKey(ref msg, keyData);
 			}
 			else
 			{

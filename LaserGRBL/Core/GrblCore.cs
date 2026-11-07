@@ -344,7 +344,7 @@ namespace LaserGRBL
 
 		static GrblCore() //static constructor for static initialization
 		{
-			System.Threading.ThreadPool.QueueUserWorkItem(GetCH340Version);
+            System.Threading.ThreadPool.QueueUserWorkItem(TryGetCH340Version);
 		}
 
         public GrblCore(System.Windows.Forms.Control syncroObject, PreviewForm cbform, JogForm jogform)
@@ -358,14 +358,7 @@ namespace LaserGRBL
 			debugLastStatusDelay = new ElapsedFromEvent();
 			debugLastMoveOrActivityDelay = new ElapsedFromEvent();
 
-			//with version 4.5.0 default ThreadingMode change from "UltraFast" to "Fast"
-			if (!Settings.IsNewFile && Settings.PrevVersion < new Version(4, 5, 0))
-			{
-				ThreadingMode CurrentMode = Settings.GetObject("Threading Mode", ThreadingMode.Fast);
-				if (Equals(CurrentMode, ThreadingMode.Insane) || Equals(CurrentMode, ThreadingMode.UltraFast))
-					Settings.SetObject("Threading Mode", ThreadingMode.Fast);
-			}
-
+            // Upstream's pre-4.5 migration does not apply to FadeGRBL's new 1.x sequence.
 			mThreadingMode = Settings.GetObject("Threading Mode", ThreadingMode.Fast);
 
             QueryTimer = new Tools.PeriodicEventTimer(TimeSpan.FromMilliseconds(mThreadingMode.StatusQuery), false);
@@ -400,6 +393,16 @@ namespace LaserGRBL
 				CSVD.LoadAppropriateCSV(GrblVersion); //load setting for last known version
 		}
 
+        private static void TryGetCH340Version(object stateInfo)
+        {
+            // Optional WMI diagnostics must not crash hosts without System.Management.
+            // Assembly resolution occurs before GetCH340Version's own try/catch.
+            try { GetCH340Version(stateInfo); }
+            catch (System.IO.FileNotFoundException) { }
+            catch (TypeLoadException) { }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
 		public static void GetCH340Version(Object stateInfo)
 		{
 			try
