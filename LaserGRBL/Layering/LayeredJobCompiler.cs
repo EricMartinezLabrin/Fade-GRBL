@@ -11,6 +11,7 @@ namespace LaserGRBL.Layering
 {
     public class LayeredCompilation
     {
+        public bool ExportRestricted { get; set; }
         public List<GrblCommand> OutputCommands { get; } = new List<GrblCommand>();
         public List<GrblCommand> PreviewCommands { get; } = new List<GrblCommand>();
         public bool HasErrors { get; set; }
@@ -24,7 +25,7 @@ namespace LaserGRBL.Layering
 
         public static LayeredCompilation Compile(LaserDocument document, int maxPwm, string laserOn, string laserOff, int objectRepetitions = 1, CancellationToken cancellation = default(CancellationToken))
         {
-            LayeredCompilation result = new LayeredCompilation();
+            LayeredCompilation result = new LayeredCompilation { ExportRestricted = Community.CommunityRuntime.IsProtected(document) };
             if (document == null) return result;
             if (document.PassOrder == JobPassOrder.ByObject) return CompileObjects(document, maxPwm, laserOn, laserOff, Math.Max(1, objectRepetitions), cancellation);
             foreach (LaserLayer layer in document.Layers.OrderBy(l => l.Order))
@@ -78,7 +79,7 @@ namespace LaserGRBL.Layering
 
         private static LayeredCompilation CompileObjects(LaserDocument document, int maxPwm, string laserOn, string laserOff, int repetitions, CancellationToken cancellation)
         {
-            var result = new LayeredCompilation();
+            var result = new LayeredCompilation { ExportRestricted = Community.CommunityRuntime.IsProtected(document) };
             var objects = new List<CutObject>();
             foreach (LaserLayer layer in document.Layers.OrderBy(l => l.Order))
             {

@@ -15,32 +15,51 @@ namespace LaserGRBL.Layering
         {
             if (!File.Exists(filename)) return false;
             using (FileStream stream = File.OpenRead(filename))
-                return stream.Length >= 2 && stream.ReadByte() == 0x1f && stream.ReadByte() == 0x8b;
+            {
+                if (stream.Length < 4) return false;
+                int first = stream.ReadByte(), second = stream.ReadByte();
+                return (first == 0x1f && second == 0x8b) || (first == 'F' && second == 'M' && stream.ReadByte() == 'P' && stream.ReadByte() == '1');
+            }
         }
 
         public static void Save(string filename, LaserDocument document)
         {
-            string temporary = filename + ".tmp";
-            try
+            Community.CommunitySecurity.AtomicWrite(filename, ToBytes(document));
+            document.IsDirty = false;
+        }
+
+        public static byte[] ToBytes(LaserDocument document)
+        {
+            Community.CommunityRuntime.ValidateAccess(document);
+            byte[] bytes;
+            using (var memory = new MemoryStream())
             {
-                using (FileStream file = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-                using (GZipStream gzip = new GZipStream(file, CompressionMode.Compress))
+                using (var gzip = new GZipStream(memory, CompressionMode.Compress, true))
                     Serializer.Serialize(gzip, LaserProjectDto.FromModel(document));
-                if (File.Exists(filename)) File.Delete(filename);
-                File.Move(temporary, filename);
-                document.IsDirty = false;
+                bytes = memory.ToArray();
             }
-            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            return Community.CommunityRuntime.IsProtected(document) ? Community.CommunitySecurity.Seal(bytes, Community.CommunityRuntime.RequireSession().libraryKey) : bytes;
         }
 
         public static LaserDocument Load(string filename)
         {
-            using (FileStream file = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read))
+            if (new FileInfo(filename).Length > 100000000) throw new InvalidDataException("Project exceeds 100 MB limit.");
+            return FromBytes(File.ReadAllBytes(filename));
+        }
+
+        public static LaserDocument FromBytes(byte[] bytes)
+        {
+            bool protectedFile = bytes.Length >= 4 && System.Text.Encoding.ASCII.GetString(bytes, 0, 4) == "FMP1";
+            if (protectedFile) bytes = Community.CommunitySecurity.Open(bytes, Community.CommunityRuntime.RequireSession().libraryKey);
+            using (var file = new MemoryStream(bytes, false))
             using (GZipStream gzip = new GZipStream(file, CompressionMode.Decompress))
+            using (var xml = System.Xml.XmlReader.Create(gzip, new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 100000000 }))
             {
-                LaserProjectDto dto = (LaserProjectDto)Serializer.Deserialize(gzip);
+                LaserProjectDto dto = (LaserProjectDto)Serializer.Deserialize(xml);
                 if (dto == null || (dto.Version != 2 && dto.Version != 3 && dto.Version != 4)) throw new InvalidDataException("Unsupported LaserGRBL project version.");
                 LaserDocument document = dto.ToModel();
+                if (!protectedFile && Community.CommunityRuntime.IsProtected(document)) throw new InvalidDataException("Acquired designs require a protected project.");
+                Community.CommunityRuntime.ValidateAccess(document);
                 if (dto.Version < 4) foreach(var layer in document.Layers) { if(layer.ScaleX==0)layer.ScaleX=1; if(layer.ScaleY==0)layer.ScaleY=1; }
                 if(document.Layers.Any(l=>!AffineTransform.Layer(l).Valid || l.VectorItems.SelectMany(i=>i.Paths).Any(p=>p.Pose==null||!p.Pose.Valid))) throw new InvalidDataException("Invalid project transform.");
                 foreach(var item in document.Layers.SelectMany(l=>l.VectorItems).Where(i=>i.Text!=null&&!i.Text.HasAffinePose))
@@ -154,13 +173,14 @@ namespace LaserGRBL.Layering
 
         public class VectorPathDto
         {
+            public Community.CommunityReceipt Acquisition { get; set; }
             public Guid Id { get; set; }
             public Guid GroupId { get; set; }
             public bool Closed { get; set; }
             public AffineTransform Pose { get; set; } = new AffineTransform();
             public List<PointDto> Points { get; set; } = new List<PointDto>();
-            public static VectorPathDto FromModel(VectorPath path) { return new VectorPathDto { Id = path.Id, GroupId = path.GroupId, Closed = path.Closed, Pose = path.Pose.Clone(), Points = path.Points.Select(point => new PointDto { X = point.X, Y = point.Y }).ToList() }; }
-            public VectorPath ToModel() { return new VectorPath { Id = Id == Guid.Empty ? Guid.NewGuid() : Id, GroupId = GroupId, Closed = Closed, Pose = Pose ?? new AffineTransform(), Points = (Points ?? new List<PointDto>()).Select(point => new LaserPoint(point.X, point.Y)).ToList() }; }
+            public static VectorPathDto FromModel(VectorPath path) { return new VectorPathDto { Acquisition = path.Acquisition, Id = path.Id, GroupId = path.GroupId, Closed = path.Closed, Pose = path.Pose.Clone(), Points = path.Points.Select(point => new PointDto { X = point.X, Y = point.Y }).ToList() }; }
+            public VectorPath ToModel() { return new VectorPath { Acquisition = Acquisition, Id = Id == Guid.Empty ? Guid.NewGuid() : Id, GroupId = GroupId, Closed = Closed, Pose = Pose ?? new AffineTransform(), Points = (Points ?? new List<PointDto>()).Select(point => new LaserPoint(point.X, point.Y)).ToList() }; }
         }
 
         public class PointDto { public double X { get; set; } public double Y { get; set; } }

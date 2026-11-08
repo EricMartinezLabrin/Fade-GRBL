@@ -26,9 +26,17 @@ namespace Svg
             {
                 if (availableElements == null)
                 {
-                    var svgTypes = from t in typeof(SvgDocument).Assembly.GetExportedTypes()
-                                   where t.GetCustomAttributes(typeof(SvgElementAttribute), true).Length > 0
-                                   && t.IsSubclassOf(typeof(SvgElement))
+                    IEnumerable<Type> exportedTypes;
+                    try { exportedTypes = typeof(SvgDocument).Assembly.GetTypes().Where(t => t.IsPublic); }
+                    catch (System.Reflection.ReflectionTypeLoadException error)
+                    {
+                        // Optional legacy Web handlers cannot load in the modern test runtime.
+                        // They must not prevent loading supported SVG geometry types.
+                        exportedTypes = error.Types.Where(t => t != null && t.IsPublic);
+                    }
+                    var svgTypes = from t in exportedTypes
+                                   where t.IsSubclassOf(typeof(SvgElement))
+                                   && t.GetCustomAttributes(typeof(SvgElementAttribute), true).Length > 0
                                    select new ElementInfo { ElementName = ((SvgElementAttribute)t.GetCustomAttributes(typeof(SvgElementAttribute), true)[0]).ElementName, ElementType = t };
 
                     availableElements = (from t in svgTypes

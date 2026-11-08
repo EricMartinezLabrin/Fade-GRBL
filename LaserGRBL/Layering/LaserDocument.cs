@@ -25,6 +25,7 @@ namespace LaserGRBL.Layering
     [Serializable]
     public class VectorPath
     {
+        public Community.CommunityReceipt Acquisition { get; set; }
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid GroupId { get; set; }
         public List<LaserPoint> Points { get; set; } = new List<LaserPoint>();
@@ -33,7 +34,7 @@ namespace LaserGRBL.Layering
 
         public VectorPath Clone(bool preserveId = true)
         {
-            return new VectorPath { Id = preserveId ? Id : Guid.NewGuid(), GroupId = GroupId, Closed = Closed, Pose = Pose.Clone(), Points = Points.Select(p => p.Clone()).ToList() };
+            return new VectorPath { Acquisition = Acquisition == null ? null : new Community.CommunityReceipt { payload = Acquisition.payload, signature = Acquisition.signature }, Id = preserveId ? Id : Guid.NewGuid(), GroupId = GroupId, Closed = Closed, Pose = Pose.Clone(), Points = Points.Select(p => p.Clone()).ToList() };
         }
     }
 

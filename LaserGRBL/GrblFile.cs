@@ -23,6 +23,7 @@ namespace LaserGRBL
 {
 	public class GrblFile : IEnumerable<GrblCommand>
 	{
+        public bool ExportRestricted { get; private set; }
 		public enum CartesianQuadrant { I, II, III, IV, Mix, Unknown }
 
 		public delegate void OnFileLoadedDlg(long elapsed, string filename);
@@ -53,10 +54,13 @@ namespace LaserGRBL
                 command.Dispose();
             }
             list.Clear();
+            ExportRestricted = false;
         }
 
         public void SaveGCODE(string filename, bool header, bool footer, bool between, int cycles, bool useLFLineEndings, GrblCore core)
 		{
+            if (ExportRestricted) throw new InvalidOperationException(Community.CommunityText.Get("ExportBlocked"));
+            Community.CommunityRuntime.DemandExport(core?.LayerController.Document);
 			try
 			{
 				using (System.IO.StreamWriter sw = new System.IO.StreamWriter(filename))
@@ -155,11 +159,17 @@ namespace LaserGRBL
 		}
 
 		internal bool LoadCommands(IEnumerable<GrblCommand> commands, string sourceName, bool notify)
+        {
+            return LoadCommandsWithProtection(commands, sourceName, notify, false);
+        }
+
+        internal bool LoadCommandsWithProtection(IEnumerable<GrblCommand> commands, string sourceName, bool notify, bool exportRestricted)
 		{
 			if (CheckInUse(false)) return false;
 			long start = Tools.HiResTimer.TotalMilliseconds;
 			if (notify) RiseOnFileLoading(sourceName);
 			ClearList();
+			ExportRestricted = exportRestricted;
 			list.AddRange(commands);
 			Analyze();
 			if (notify) RiseOnFileLoaded(sourceName, Tools.HiResTimer.TotalMilliseconds - start);

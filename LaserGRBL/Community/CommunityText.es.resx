@@ -1,0 +1,297 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="Community" xml:space="preserve">
+    <value>Comunidad</value>
+  </data>
+  <data name="Library" xml:space="preserve">
+    <value>Mi biblioteca</value>
+  </data>
+  <data name="Marketplace" xml:space="preserve">
+    <value>Marketplace</value>
+  </data>
+  <data name="Profile" xml:space="preserve">
+    <value>Mi perfil</value>
+  </data>
+  <data name="Configure" xml:space="preserve">
+    <value>Configurar servidor</value>
+  </data>
+  <data name="Login" xml:space="preserve">
+    <value>Iniciar sesión</value>
+  </data>
+  <data name="Register" xml:space="preserve">
+    <value>Crear cuenta</value>
+  </data>
+  <data name="Recovery" xml:space="preserve">
+    <value>Recuperar contraseña</value>
+  </data>
+  <data name="ResetPassword" xml:space="preserve">
+    <value>Restablecer contraseña</value>
+  </data>
+  <data name="Logout" xml:space="preserve">
+    <value>Cerrar sesión</value>
+  </data>
+  <data name="RefreshLocal" xml:space="preserve">
+    <value>Actualizar local</value>
+  </data>
+  <data name="SaveCurrent" xml:space="preserve">
+    <value>Guardar proyecto en biblioteca</value>
+  </data>
+  <data name="ImportSvg" xml:space="preserve">
+    <value>Importar SVG propio</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>Abrir en lienzo</value>
+  </data>
+  <data name="Backup" xml:space="preserve">
+    <value>Respaldar en nube</value>
+  </data>
+  <data name="CloudRefresh" xml:space="preserve">
+    <value>Consultar nube</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>Restaurar respaldo</value>
+  </data>
+  <data name="DeleteCloud" xml:space="preserve">
+    <value>Eliminar respaldo remoto</value>
+  </data>
+  <data name="DeleteLocal" xml:space="preserve">
+    <value>Eliminar copia local</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Buscar</value>
+  </data>
+  <data name="More" xml:space="preserve">
+    <value>Más resultados</value>
+  </data>
+  <data name="Details" xml:space="preserve">
+    <value>Ver detalle</value>
+  </data>
+  <data name="DesignerCatalog" xml:space="preserve">
+    <value>Ver catálogo del autor</value>
+  </data>
+  <data name="Acquire" xml:space="preserve">
+    <value>Añadir a mi biblioteca</value>
+  </data>
+  <data name="Publish" xml:space="preserve">
+    <value>Publicar diseño propio</value>
+  </data>
+  <data name="EditPublication" xml:space="preserve">
+    <value>Editar publicación</value>
+  </data>
+  <data name="Withdraw" xml:space="preserve">
+    <value>Retirar publicación</value>
+  </data>
+  <data name="Report" xml:space="preserve">
+    <value>Reportar</value>
+  </data>
+  <data name="MyAcquisitions" xml:space="preserve">
+    <value>Restaurar mis adquisiciones</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Actualizar perfil</value>
+  </data>
+  <data name="SaveProfile" xml:space="preserve">
+    <value>Guardar perfil</value>
+  </data>
+  <data name="VerifyEmail" xml:space="preserve">
+    <value>Verificar correo</value>
+  </data>
+  <data name="ResendVerification" xml:space="preserve">
+    <value>Reenviar verificación</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Correo electrónico</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Contraseña</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>Nueva contraseña</value>
+  </data>
+  <data name="DisplayName" xml:space="preserve">
+    <value>Nombre público</value>
+  </data>
+  <data name="Bio" xml:space="preserve">
+    <value>Biografía</value>
+  </data>
+  <data name="Token" xml:space="preserve">
+    <value>Código recibido por correo</value>
+  </data>
+  <data name="Title" xml:space="preserve">
+    <value>Nombre del diseño</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Descripción</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>Categoría</value>
+  </data>
+  <data name="Tags" xml:space="preserve">
+    <value>Etiquetas separadas por comas</value>
+  </data>
+  <data name="DesignerId" xml:space="preserve">
+    <value>ID del diseñador</value>
+  </data>
+  <data name="Designs" xml:space="preserve">
+    <value>Diseños</value>
+  </data>
+  <data name="Designers" xml:space="preserve">
+    <value>Diseñadores</value>
+  </data>
+  <data name="SearchType" xml:space="preserve">
+    <value>Tipo de búsqueda</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Results" xml:space="preserve">
+    <value>Resultados</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>Vista previa</value>
+  </data>
+  <data name="LocalDesigns" xml:space="preserve">
+    <value>Diseños locales y adquisiciones</value>
+  </data>
+  <data name="CloudDesigns" xml:space="preserve">
+    <value>Respaldos privados en nube</value>
+  </data>
+  <data name="Acquired" xml:space="preserve">
+    <value>Adquirido</value>
+  </data>
+  <data name="Accept" xml:space="preserve">
+    <value>Aceptar</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Ready" xml:space="preserve">
+    <value>Listo</value>
+  </data>
+  <data name="Busy" xml:space="preserve">
+    <value>Procesando… Puedes seguir usando ventana principal.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Operación cancelada.</value>
+  </data>
+  <data name="QuotaUnknown" xml:space="preserve">
+    <value>Nube privada: 200 MB gratuitos. Consulta nube para ver espacio disponible.</value>
+  </data>
+  <data name="Quota" xml:space="preserve">
+    <value>Nube privada: {0:0.00} MB usados + {1:0.00} MB reservados / {2:0.00} MB.</value>
+  </data>
+  <data name="CorruptEntries" xml:space="preserve">
+    <value>No se pudieron abrir {0} entradas. Archivos conservados para recuperación.</value>
+  </data>
+  <data name="Server" xml:space="preserve">
+    <value>Origen HTTPS del servidor, sin /api/v1</value>
+  </data>
+  <data name="SigningKey" xml:space="preserve">
+    <value>Clave pública RSA XML del servidor (2048 bits o más)</value>
+  </data>
+  <data name="HttpsOnly" xml:space="preserve">
+    <value>Configura origen HTTPS válido, sin ruta, usuario, consulta ni fragmento.</value>
+  </data>
+  <data name="MissingSigningKey" xml:space="preserve">
+    <value>Configura clave pública del servidor para verificar adquisiciones.</value>
+  </data>
+  <data name="LoginRequired" xml:space="preserve">
+    <value>Inicia sesión para usar biblioteca y marketplace.</value>
+  </data>
+  <data name="NetworkUnavailable" xml:space="preserve">
+    <value>Servidor sin conexión. Biblioteca local disponible con sesión guardada.</value>
+  </data>
+  <data name="InvalidSvg" xml:space="preserve">
+    <value>SVG no compatible o demasiado complejo. Usa geometría vectorial sin imágenes, CSS ni referencias externas. Máximo 10 MB.</value>
+  </data>
+  <data name="VectorOnly" xml:space="preserve">
+    <value>Publicación requiere contenido vectorial. Selecciona capas u objetos vectoriales; no se omitirán imágenes automáticamente.</value>
+  </data>
+  <data name="ExportBlocked" xml:space="preserve">
+    <value>Este proyecto contiene diseños adquiridos. Puedes guardarlo protegido y trabajar desde FadeGRBL; no exportar SVG, G-code ni proyecto abierto.</value>
+  </data>
+  <data name="EditingLocked" xml:space="preserve">
+    <value>Espera a que termine trabajo actual antes de cambiar documento o cerrar sesión.</value>
+  </data>
+  <data name="CloseProtectedFirst" xml:space="preserve">
+    <value>Guarda y cierra documento protegido antes de cambiar cuenta o servidor.</value>
+  </data>
+  <data name="SaveChangesFirst" xml:space="preserve">
+    <value>Guarda cambios del lienzo antes de abrir otro diseño.</value>
+  </data>
+  <data name="SelectDesign" xml:space="preserve">
+    <value>Selecciona un diseño o abre un proyecto editable.</value>
+  </data>
+  <data name="AcquiredNoBackup" xml:space="preserve">
+    <value>Adquisiciones se restauran desde marketplace y no consumen nube privada. Usa «Restaurar mis adquisiciones».</value>
+  </data>
+  <data name="OwnerOnly" xml:space="preserve">
+    <value>Solo autor puede editar o retirar publicación.</value>
+  </data>
+  <data name="VerifyFirst" xml:space="preserve">
+    <value>Verifica correo antes de publicar.</value>
+  </data>
+  <data name="Verified" xml:space="preserve">
+    <value>Correo verificado</value>
+  </data>
+  <data name="Unverified" xml:space="preserve">
+    <value>Correo sin verificar</value>
+  </data>
+  <data name="Reason" xml:space="preserve">
+    <value>Motivo del reporte</value>
+  </data>
+  <data name="SaveBeforeLogout" xml:space="preserve">
+    <value>Guardar proyecto protegido antes de cerrar sesión</value>
+  </data>
+  <data name="Confirmation" xml:space="preserve">
+    <value>Escribe GUARDAR para conservar proyecto en biblioteca y cerrar documento</value>
+  </data>
+  <data name="ReplaceConfirmation" xml:space="preserve">
+    <value>Escribe RESTAURAR para reemplazar copia local del respaldo</value>
+  </data>
+  <data name="DeleteConfirmation" xml:space="preserve">
+    <value>Escribe ELIMINAR para confirmar</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>Permite uso personal y venta de productos físicos. Solo dentro de FadeGRBL; sin redistribución ni exportación.</value>
+  </data>
+  <data name="LicenseAgreement" xml:space="preserve">
+    <value>Permite uso personal y venta de productos físicos, solo dentro de FadeGRBL. Sin exportar ni redistribuir SVG o G-code. Licencia physical-products-v1. Escribe ACEPTO</value>
+  </data>
+  <data name="OwnershipAgreement" xml:space="preserve">
+    <value>Publicar gratis permite uso y venta de productos físicos. Escribe SOY AUTOR</value>
+  </data>
+  <data name="EditLocal" xml:space="preserve">
+    <value>Editar nombre y etiquetas</value>
+  </data>
+  <data name="LibraryFilter">
+    <value>Filtrar biblioteca</value>
+  </data>
+  <data name="OwnDesigns">
+    <value>Propios</value>
+  </data>
+  <data name="AllDesigners">
+    <value>Todos los autores</value>
+  </data>
+  <data name="AllDesigns">
+    <value>Todos los diseños</value>
+  </data>
+  <data name="InvalidMetadata">
+    <value>Nombre: 1 a 120 caracteres. Máximo 20 etiquetas de 1 a 40 caracteres.</value>
+  </data>
+  <data name="InsertLocal">
+    <value>Insertar en lienzo</value>
+  </data>
+</root>

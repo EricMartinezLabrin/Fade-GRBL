@@ -664,11 +664,11 @@ namespace LaserGRBL
 		internal bool ApplyLayeredCompilation(LayeredCompilation compilation, bool notify = true)
 		{
 			GrblFile preview = new GrblFile();
-			preview.LoadCommands(compilation.PreviewCommands, "Layered preview", false);
+			preview.LoadCommandsWithProtection(compilation.PreviewCommands, "Layered preview", false, compilation.ExportRestricted);
 			if (file.CheckInUse(false)) return false;
 			GrblFile previousPreview = previewFile;
 			previewFile = preview;
-			if (file.LoadCommands(compilation.OutputCommands, "Layered project", notify))
+			if (file.LoadCommandsWithProtection(compilation.OutputCommands, "Layered project", notify, compilation.ExportRestricted))
 			{
 				if (!notify && OnPreviewChanged != null) OnPreviewChanged();
 				return true;
@@ -859,6 +859,11 @@ namespace LaserGRBL
 
 		public void SaveProgram(Form parent, bool header, bool footer, bool between, int cycles, bool useLFLineEndings)
 		{
+            if (file.ExportRestricted || Community.CommunityRuntime.IsProtected(LayerController.Document))
+            {
+                MessageBox.Show(parent, Community.CommunityText.Get("ExportBlocked"), Community.CommunityText.Get("Marketplace"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
 			if (HasProgram && (!LayerController.IsLayered || (LayerController.IsCompilationCurrent && !LayerController.HasCompilationErrors)))
 			{
 				string filename = null;

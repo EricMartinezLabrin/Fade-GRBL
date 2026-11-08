@@ -141,6 +141,11 @@ namespace LaserGRBL.Layering
             foreach (var point in paths.SelectMany(p=>p.Points)) { var q=pose.Apply(point.X-bounds.Left,point.Y-bounds.Top); point.X=q.X;point.Y=q.Y; }
             var metadata = text.Clone(); metadata.HasAffinePose=true; metadata.ReferenceOffsetX = bounds.Left; metadata.ReferenceOffsetY = bounds.Top; metadata.ReferenceWidth = bounds.Width; metadata.ReferenceHeight = bounds.Height;
             Guid group = previous == null || previous.Paths.Count == 0 ? Guid.Empty : previous.Paths[0].GroupId;
+            if (previous != null)
+            {
+                var receipt = previous.Paths.Select(p => p.Acquisition).FirstOrDefault(r => r != null);
+                if (receipt != null) foreach (var path in paths) path.Acquisition = receipt;
+            }
             foreach (var p in paths) { p.GroupId = group; p.Pose = pose.Clone(); }
             return new VectorItem { Id = previous == null ? Guid.NewGuid() : previous.Id, Text = metadata, SourceName = "Text", Paths = paths };
         }

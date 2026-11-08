@@ -41,9 +41,44 @@ namespace LaserGRBL.Layering
 
         public LayerDocumentController(GrblCore core) { this.core = core; }
 
+        public void OpenLibraryDocument(LaserDocument document)
+        {
+            if (core.JobEditingLocked || !core.CanLoadNewFile) throw new InvalidOperationException(Community.CommunityText.Get("EditingLocked"));
+            Community.CommunityRuntime.ValidateAccess(document);
+            InvalidateCompilation(); Clipboard.Clear(); Document = document.Clone();
+            Document.IsDirty = true; DocumentReplaced?.Invoke(); ResetHistory(false);
+            NotifyDocumentChanged(); RequestCompile(true);
+        }
+
+        public void InsertLibraryDocument(LaserDocument document)
+        {
+            if (core.JobEditingLocked || !core.CanLoadNewFile) throw new InvalidOperationException(Community.CommunityText.Get("EditingLocked"));
+            Community.CommunityRuntime.ValidateAccess(document);
+            EnsureDocument();
+            var clipboard = new CanvasClipboard(); clipboard.CopyLayers(document, document.Layers);
+            InsertCopies(clipboard);
+        }
+
+        public void ClearCommunityHistory()
+        {
+            if (core.JobEditingLocked) throw new InvalidOperationException(Community.CommunityText.Get("EditingLocked"));
+            if (!Community.CommunityRuntime.IsProtected(Document) && core.LoadedFile.ExportRestricted)
+                core.LoadedFile.LoadCommands(new GrblCommand[0], "Community closed", false);
+            Clipboard.Clear(); ResetHistory(Document == null || !Document.IsDirty);
+        }
+
+        public void MarkLibrarySaved()
+        {
+            if (Document == null) return;
+            transientEdit = false; History.Commit(Document, Selection); History.MarkSaved();
+            Document.IsDirty = false; NotifyDocumentChanged();
+        }
+
         public void NewDocument()
         {
             if (core.JobEditingLocked) return;
+            if (core.LoadedFile.ExportRestricted && !core.LoadedFile.CheckInUse(false))
+                core.LoadedFile.LoadCommands(new GrblCommand[0], "New document", false);
             InvalidateCompilation();
             Clipboard.Clear();
             Document = new LaserDocument();

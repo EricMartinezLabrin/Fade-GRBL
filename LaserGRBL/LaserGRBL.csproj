@@ -2608,6 +2608,19 @@
     <Folder Include="Properties\DataSources\" />
     <Folder Include="SvgLibrary\Web\Resources\" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Community\CommunityModels.cs" />
+    <Compile Include="Community\CommunitySecurity.cs" />
+    <Compile Include="Community\CommunityClient.cs" />
+    <Compile Include="Community\CommunityRuntime.cs" />
+    <Compile Include="Community\CommunitySvg.cs" />
+    <Compile Include="Community\PersonalLibrary.cs" />
+    <Compile Include="Community\CommunityForm.cs"><SubType>Form</SubType></Compile>
+    <Compile Include="Community\CommunityForm.Designer.cs"><DependentUpon>CommunityForm.cs</DependentUpon></Compile>
+    <Compile Include="MainForm.Community.cs" />
+    <EmbeddedResource Include="Community\CommunityText.resx" />
+    <EmbeddedResource Include="Community\CommunityText.es.resx" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

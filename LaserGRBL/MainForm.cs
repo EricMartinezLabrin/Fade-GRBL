@@ -79,6 +79,7 @@ namespace LaserGRBL
 			else
 				Core = new GrblCore(this, PreviewForm, JogForm);
 			ExceptionManager.Core = Core;
+            InitializeCommunityMenu();
 
 			if (true) //use multi instance trigger
 			{

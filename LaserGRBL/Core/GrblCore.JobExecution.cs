@@ -274,7 +274,7 @@ namespace LaserGRBL
                     {
                         LayeredCompilation compilation = CompileJobDocument(dialog.Document);
                         GrblFile prepared = new GrblFile();
-                        if (!prepared.LoadCommands(compilation.OutputCommands, "Adjusted job", false)) throw new InvalidOperationException();
+                        if (!prepared.LoadCommandsWithProtection(compilation.OutputCommands, "Adjusted job", false, compilation.ExportRestricted)) throw new InvalidOperationException();
                         mJobStagedDocument = dialog.Document.Clone();
                         mJobError = null;
                     }
@@ -306,7 +306,7 @@ namespace LaserGRBL
             {
                 compilation = CompileJobDocument(document);
                 prepared = new GrblFile();
-                if (!prepared.LoadCommands(compilation.OutputCommands, "Adjusted job", false)) throw new InvalidOperationException();
+                if (!prepared.LoadCommandsWithProtection(compilation.OutputCommands, "Adjusted job", false, compilation.ExportRestricted)) throw new InvalidOperationException();
             }
             catch (Exception ex) { mJobError = LayerText.Get("JobCompileFailed") + " " + ex.Message; return; }
             List<GrblCommand> commands = prepared.ToList();
@@ -353,10 +353,10 @@ namespace LaserGRBL
                 first.DeleteHelper();
             }
             // All compilation, parsing and reset validation succeeded before publishing either side.
-            if (!file.LoadCommands(commands, "Layered project", false)) { FailJobRebuild(LayerText.Get("JobCompileFailed")); return; }
+            if (!file.LoadCommandsWithProtection(commands, "Layered project", false, rebuild.Compilation.ExportRestricted)) { FailJobRebuild(LayerText.Get("JobCompileFailed")); return; }
             LayerController.ApplyJobDocument(rebuild.Document);
             GrblFile preview = new GrblFile();
-            preview.LoadCommands(rebuild.Compilation.PreviewCommands, "Layered preview", false); previewFile = preview;
+            preview.LoadCommandsWithProtection(rebuild.Compilation.PreviewCommands, "Layered preview", false, rebuild.Compilation.ExportRestricted); previewFile = preview;
             JobSession.ReplaceCommands(file, rebuild.Document, rebuild.Position);
             ClearQueue(false);
             foreach (GrblCommand command in prefix) mQueuePtr.Enqueue(command);
